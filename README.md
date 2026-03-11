@@ -1,6 +1,12 @@
-# Resume Outreach Studio
+# Hiring Mail Sender
 
-Memory-backed outreach tool for fresher marketing and HR applications. Users verify SMTP, upload a resume, paste recruiter contact text, preview personalized emails, and send from the browser.
+Single-user mail sender for non-technical usage.
+
+The app is designed for this workflow:
+
+1. One technical/admin person completes setup once.
+2. SMTP, sender identity, resume, and default template are saved on disk in `app-data/state.json`.
+3. After that, the day-to-day user only pastes hiring-team email IDs in the `Send Now` tab and clicks send.
 
 ## Run
 
@@ -11,31 +17,38 @@ npm start
 
 Open `http://127.0.0.1:3000`.
 
-## Checks
+## Check
 
 ```bash
 npm run check
 ```
 
-## Environment
+## Persistent Setup
 
-- `HOST`: bind host, default `127.0.0.1`
-- `PORT`: bind port, default `3000`
-- `NODE_ENV`: set to `production` to enable secure cookie flag
+The one-time setup stores:
 
-## Production Notes
+- SMTP host, port, username, password
+- Sender name and sender email
+- Resume file
+- Default profile and template
+- Optional default subject override
+- Optional default additional note
 
-- Session state is in process memory only. Restarting the server clears SMTP state, resume uploads, and history.
-- Sessions expire automatically after 6 hours of inactivity.
-- Resume uploads are limited to 5 MB and PDF/DOC/DOCX/TXT types.
-- Recipient extraction is capped at 50 unique email addresses per saved resume session.
-- History is capped at the 100 most recent send batches per session.
+The setup is persisted locally in `app-data/state.json`.
+
+## Day-To-Day Use
+
+The non-technical user only needs to:
+
+1. Open `Send Now`
+2. Paste recruiter / hiring-team emails
+3. Review detected recipients and preview
+4. Click `Send Emails`
 
 ## Endpoints
 
 - `GET /health`
-- `GET /api/session`
-- `POST /api/verify`
-- `POST /api/resume`
-- `POST /api/preview`
+- `GET /api/state`
+- `POST /api/setup`
+- `POST /api/send/preview`
 - `POST /api/send`
