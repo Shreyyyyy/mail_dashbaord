@@ -1,5 +1,3 @@
-const fs = require("fs");
-const path = require("path");
 const express = require("express");
 const helmet = require("helmet");
 const multer = require("multer");
@@ -9,11 +7,10 @@ const app = express();
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "127.0.0.1";
-const STATE_DIR = path.join(__dirname, "app-data");
-const STATE_FILE = path.join(STATE_DIR, "state.json");
 const MAX_HISTORY_ITEMS = 200;
 const MAX_RECIPIENTS = 50;
 const MAX_TEXT_LEN = 2000;
+const STORE_KEY = "mail_app_state_v1";
 const ALLOWED_RESUME_TYPES = new Set([
   "application/pdf",
   "application/msword",
@@ -75,95 +72,84 @@ const upload = multer({
   }
 });
 
-app.disable("x-powered-by");
-app.use(
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-        fontSrc: ["'self'", "https://fonts.gstatic.com"],
-        scriptSrc: ["'self'"],
-        connectSrc: ["'self'"]
-      }
-    }
-  })
-);
-app.use(express.json({ limit: "1mb" }));
-app.use(express.static(path.join(__dirname, "public"), { extensions: ["html"] }));
+const memoryStore = { configured: false, sender: null, history: [] };
 
 function trimToString(value) {
   return String(value || "").trim();
 }
 
-function ensureStateDir() {
-  fs.mkdirSync(STATE_DIR, { recursive: true });
+function cloneDefaultState() {
+  return { configured: false, sender: null, history: [] };
 }
 
-function defaultState() {
-  return {
-    configured: false,
-    sender: null,
-    history: []
-  };
-}
-
-function loadState() {
-  ensureStateDir();
-  if (!fs.existsSync(STATE_FILE)) return defaultState();
+async function loadKvModule() {
+  if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
   try {
-    const parsed = JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
-    return {
-      configured: Boolean(parsed.configured),
-      sender: parsed.sender || null,
-      history: Array.isArray(parsed.history) ? parsed.history : []
-    };
+    return require("@vercel/kv");
   } catch {
-    return defaultState();
+    return null;
   }
 }
 
-let appState = loadState();
-
-function saveState() {
-  ensureStateDir();
-  fs.writeFileSync(STATE_FILE, JSON.stringify(appState, null, 2));
+async function readState() {
+  const kv = await loadKvModule();
+  if (kv?.kv) {
+    const state = await kv.kv.get(STORE_KEY);
+    return state || cloneDefaultState();
+  }
+  return memoryStore;
 }
 
-function sanitizeState() {
+async function writeState(nextState) {
+  const kv = await loadKvModule();
+  if (kv?.kv) {
+    await kv.kv.set(STORE_KEY, nextState);
+    return nextState;
+  }
+  memoryStore.configured = nextState.configured;
+  memoryStore.sender = nextState.sender;
+  memoryStore.history = nextState.history;
+  return memoryStore;
+}
+
+function publicTemplates() {
+  return Object.fromEntries(
+    Object.entries(templates).map(([domain, variants]) => [
+      domain,
+      Object.entries(variants).map(([key, template]) => ({
+        key,
+        label: template.label,
+        subject: template.subject
+      }))
+    ])
+  );
+}
+
+function sanitizeState(state) {
   return {
-    configured: appState.configured,
-    sender: appState.sender
+    configured: Boolean(state.configured),
+    sender: state.sender
       ? {
           smtp: {
-            host: appState.sender.smtp.host,
-            port: appState.sender.smtp.port,
-            secure: appState.sender.smtp.secure,
-            user: appState.sender.smtp.user,
-            tlsRejectUnauthorized: appState.sender.smtp.tlsRejectUnauthorized
+            host: state.sender.smtp.host,
+            port: state.sender.smtp.port,
+            secure: state.sender.smtp.secure,
+            user: state.sender.smtp.user,
+            tlsRejectUnauthorized: state.sender.smtp.tlsRejectUnauthorized
           },
           profile: {
-            fromName: appState.sender.profile.fromName,
-            fromEmail: appState.sender.profile.fromEmail,
-            resumeFileName: appState.sender.profile.resumeFileName,
-            domain: appState.sender.profile.domain,
-            templateKey: appState.sender.profile.templateKey,
-            customSubject: appState.sender.profile.customSubject,
-            customNote: appState.sender.profile.customNote
+            fromName: state.sender.profile.fromName,
+            fromEmail: state.sender.profile.fromEmail,
+            resumeFileName: state.sender.profile.resumeFileName,
+            domain: state.sender.profile.domain,
+            templateKey: state.sender.profile.templateKey,
+            customSubject: state.sender.profile.customSubject,
+            customNote: state.sender.profile.customNote
           }
         }
       : null,
-    templates: Object.fromEntries(
-      Object.entries(templates).map(([domain, variants]) => [
-        domain,
-        Object.entries(variants).map(([key, template]) => ({
-          key,
-          label: template.label,
-          subject: template.subject
-        }))
-      ])
-    ),
-    history: appState.history
+    templates: publicTemplates(),
+    history: Array.isArray(state.history) ? state.history : []
   };
 }
 
@@ -235,39 +221,18 @@ function validateSetup(body, file) {
   const templateKey = trimToString(body?.templateKey);
   const customSubject = trimToString(body?.customSubject);
   const customNote = trimToString(body?.customNote);
-
   if (!fromName || !fromEmail) return { error: "Provide sender name and sender email." };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fromEmail)) return { error: "Provide a valid sender email." };
   if (!templates[domain]?.[templateKey]) return { error: "Select a valid default profile and template." };
   if (customSubject.length > MAX_TEXT_LEN || customNote.length > MAX_TEXT_LEN) return { error: "Default subject/note is too long." };
   if (!file) return { error: "Upload a resume file." };
-
-  return {
-    value: {
-      fromName,
-      fromEmail,
-      domain,
-      templateKey,
-      customSubject,
-      customNote
-    }
-  };
+  return { value: { fromName, fromEmail, domain, templateKey, customSubject, customNote } };
 }
 
-function requireConfigured(res, predicate = appState.configured) {
-  if (!predicate || !appState.sender) {
-    res.status(400).json({ error: "Complete one-time setup first." });
-    return false;
-  }
-  return true;
-}
-
-function buildMessages(recipientText) {
+function buildMessages(sender, recipientText) {
   const recipients = extractRecipients(recipientText);
-  const sender = appState.sender;
   const template = templates[sender.profile.domain][sender.profile.templateKey];
   const subject = sender.profile.customSubject || template.subject;
-
   const messages = recipients.map((recipient) => {
     const body = template.body({
       greeting: buildGreeting(recipient, recipients.length),
@@ -277,24 +242,44 @@ function buildMessages(recipientText) {
     const content = sender.profile.customNote ? `${body}\n\nAdditional Note:\n${sender.profile.customNote}` : body;
     return { recipient, subject, content };
   });
-
   return { recipients, subject, messages };
 }
 
+app.disable("x-powered-by");
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        scriptSrc: ["'self'"],
+        connectSrc: ["'self'"]
+      }
+    }
+  })
+);
+app.use(express.json({ limit: "1mb" }));
+app.use(express.static("public", { extensions: ["html"] }));
+
 app.get("/health", (_req, res) => {
-  res.json({ ok: true });
+  res.json({ ok: true, storage: process.env.KV_REST_API_URL ? "kv" : "memory" });
 });
 
-app.get("/api/state", (_req, res) => {
-  res.json(sanitizeState());
+app.get("/api/state", async (_req, res, next) => {
+  try {
+    const state = await readState();
+    res.json(sanitizeState(state));
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.post("/api/setup/verify", async (req, res, next) => {
   try {
     const validation = validateSmtp(req.body?.smtp);
     if (validation.error) return res.status(400).json({ error: validation.error });
-    const transport = buildTransport(validation.value);
-    await transport.verify();
+    await buildTransport(validation.value).verify();
     res.json({ ok: true });
   } catch (error) {
     next(error);
@@ -308,66 +293,71 @@ app.post("/api/setup", upload.single("resumeFile"), async (req, res, next) => {
     const setupValidation = validateSetup(req.body, req.file);
     if (setupValidation.error) return res.status(400).json({ error: setupValidation.error });
 
-    const transport = buildTransport(smtpValidation.value);
-    await transport.verify();
+    await buildTransport(smtpValidation.value).verify();
 
-    appState.configured = true;
-    appState.sender = {
-      smtp: smtpValidation.value,
-      profile: {
-        fromName: setupValidation.value.fromName,
-        fromEmail: setupValidation.value.fromEmail,
-        domain: setupValidation.value.domain,
-        templateKey: setupValidation.value.templateKey,
-        customSubject: setupValidation.value.customSubject,
-        customNote: setupValidation.value.customNote,
-        resumeFileName: req.file.originalname,
-        resumeMimeType: req.file.mimetype || "application/octet-stream",
-        resumeBufferBase64: req.file.buffer.toString("base64")
-      }
+    const nextState = {
+      configured: true,
+      sender: {
+        smtp: smtpValidation.value,
+        profile: {
+          fromName: setupValidation.value.fromName,
+          fromEmail: setupValidation.value.fromEmail,
+          domain: setupValidation.value.domain,
+          templateKey: setupValidation.value.templateKey,
+          customSubject: setupValidation.value.customSubject,
+          customNote: setupValidation.value.customNote,
+          resumeFileName: req.file.originalname,
+          resumeMimeType: req.file.mimetype || "application/octet-stream",
+          resumeBufferBase64: req.file.buffer.toString("base64")
+        }
+      },
+      history: (await readState()).history || []
     };
-    saveState();
-    res.json({ ok: true, state: sanitizeState() });
+
+    const state = await writeState(nextState);
+    res.json({ ok: true, state: sanitizeState(state) });
   } catch (error) {
     next(error);
   }
 });
 
-app.post("/api/send/preview", (req, res) => {
-  if (!requireConfigured(res)) return;
-  const recipientText = trimToString(req.body?.recipientText);
-  const recipients = extractRecipients(recipientText);
-  if (!recipients.length) return res.status(400).json({ error: "Paste at least one valid email address." });
-  const preview = buildMessages(recipientText);
-  res.json({ ok: true, ...preview });
+app.post("/api/send/preview", async (req, res, next) => {
+  try {
+    const state = await readState();
+    if (!state.configured || !state.sender) return res.status(400).json({ error: "Complete one-time setup first." });
+    const recipientText = trimToString(req.body?.recipientText);
+    const preview = buildMessages(state.sender, recipientText);
+    if (!preview.recipients.length) return res.status(400).json({ error: "Paste at least one valid email address." });
+    res.json({ ok: true, ...preview });
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.post("/api/send", async (req, res, next) => {
   try {
-    if (!requireConfigured(res)) return;
+    const state = await readState();
+    if (!state.configured || !state.sender) return res.status(400).json({ error: "Complete one-time setup first." });
     const recipientText = trimToString(req.body?.recipientText);
-    const built = buildMessages(recipientText);
+    const built = buildMessages(state.sender, recipientText);
     if (!built.recipients.length) return res.status(400).json({ error: "Paste at least one valid email address." });
 
-    const sender = appState.sender;
-    const transport = buildTransport(sender.smtp);
+    const transport = buildTransport(state.sender.smtp);
     const sentMessages = [];
-
     for (const message of built.messages) {
       const info = await transport.sendMail({
-        from: `${sender.profile.fromName} <${sender.profile.fromEmail}>`,
+        from: `${state.sender.profile.fromName} <${state.sender.profile.fromEmail}>`,
         to: message.recipient.email,
         subject: message.subject,
         text: message.content,
         attachments: [
           {
-            filename: sender.profile.resumeFileName,
-            content: Buffer.from(sender.profile.resumeBufferBase64, "base64"),
-            contentType: sender.profile.resumeMimeType
+            filename: state.sender.profile.resumeFileName,
+            content: Buffer.from(state.sender.profile.resumeBufferBase64, "base64"),
+            contentType: state.sender.profile.resumeMimeType
           }
         ]
       });
-
       sentMessages.push({
         messageId: info.messageId,
         recipient: message.recipient.email,
@@ -376,17 +366,22 @@ app.post("/api/send", async (req, res, next) => {
       });
     }
 
-    appState.history.unshift({
-      id: `${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      subject: built.subject,
-      recipients: built.recipients.map((recipient) => recipient.email),
-      sentMessages
-    });
-    appState.history = appState.history.slice(0, MAX_HISTORY_ITEMS);
-    saveState();
+    const nextState = {
+      ...state,
+      history: [
+        {
+          id: `${Date.now()}`,
+          createdAt: new Date().toISOString(),
+          subject: built.subject,
+          recipients: built.recipients.map((recipient) => recipient.email),
+          sentMessages
+        },
+        ...(state.history || [])
+      ].slice(0, MAX_HISTORY_ITEMS)
+    };
 
-    res.json({ ok: true, sent: sentMessages.length, history: appState.history });
+    const savedState = await writeState(nextState);
+    res.json({ ok: true, sent: sentMessages.length, history: savedState.history });
   } catch (error) {
     next(error);
   }
@@ -398,9 +393,12 @@ app.use((err, _req, res, _next) => {
   return res.status(500).json({ error: "Internal server error." });
 });
 
-const server = app.listen(PORT, HOST, () => {
-  console.log(`Server running on http://${HOST}:${PORT}`);
-});
+if (require.main === module) {
+  const server = app.listen(PORT, HOST, () => {
+    console.log(`Server running on http://${HOST}:${PORT}`);
+  });
+  server.requestTimeout = 30_000;
+  server.headersTimeout = 35_000;
+}
 
-server.requestTimeout = 30_000;
-server.headersTimeout = 35_000;
+module.exports = app;

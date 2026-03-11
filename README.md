@@ -34,7 +34,15 @@ The one-time setup stores:
 - Optional default subject override
 - Optional default additional note
 
-The setup is persisted locally in `app-data/state.json`.
+Local development:
+
+- setup is stored in process memory only
+- restarting the local server clears configured state
+
+Vercel deployment:
+
+- if `KV_REST_API_URL` and `KV_REST_API_TOKEN` are configured, setup/history are persisted in Vercel KV
+- if KV is not configured, setup/history fall back to in-memory storage and will not reliably persist across invocations
 
 ## Day-To-Day Use
 
@@ -52,3 +60,15 @@ The non-technical user only needs to:
 - `POST /api/setup`
 - `POST /api/send/preview`
 - `POST /api/send`
+
+## Vercel
+
+This repo now includes:
+
+- [`api/index.js`](/home/shrey/projects/mail/api/index.js) as the serverless entrypoint
+- [`vercel.json`](/home/shrey/projects/mail/vercel.json) for routing
+
+Important:
+
+- Do not rely on local filesystem writes on Vercel
+- Configure Vercel KV or another external store if you want one-time setup to persist
