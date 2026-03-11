@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Resume Outreach Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Manrope:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="hero">
+        <div class="hero-content">
+          <p class="badge">Memory-backed SMTP Resume Outreach</p>
+          <h1>Resume Outreach Studio</h1>
+          <p class="subhead">
+            Verify SMTP once, keep the sender profile and resume in server memory for the active user session, and work from a single compose and dashboard view.
+          </p>
+          <div class="hero-meta">
+            <div>
+              <span class="meta-title">Templates</span>
+              <span class="meta-value">3 fresher variants each for Marketing and HR</span>
+            </div>
+            <div>
+              <span class="meta-title">Session</span>
+              <span class="meta-value">SMTP + resume kept in memory until server restart</span>
+            </div>
+            <div>
+              <span class="meta-title">Dashboard</span>
+              <span class="meta-value">Past mails, recipients, timestamps, and content</span>
+            </div>
+          </div>
+        </div>
+        <div class="hero-panel">
+          <div class="hero-card">
+            <h2>Workflow</h2>
+            <ol class="steps">
+              <li>Verify SMTP login once</li>
+              <li>Save resume and recipient details</li>
+              <li>Pick a fresher template and send</li>
+              <li>Review previous mails in the dashboard</li>
+            </ol>
+            <p class="small">
+              Data is memory-only on the server for the current session and is cleared if the process restarts.
+            </p>
+          </div>
+        </div>
+      </header>
+
+      <main class="app">
+        <nav class="tabbar">
+          <button class="tab active" data-tab="compose">Compose</button>
+          <button class="tab" data-tab="dashboard">Dashboard</button>
+        </nav>
+
+        <section class="panel" data-tab-panel="compose">
+          <div class="section-head">
+            <div>
+              <h2>Compose Outreach</h2>
+              <p class="panel-lead">Set up SMTP, save your resume once, then choose one of the fresher templates.</p>
+            </div>
+            <div id="session-summary" class="summary-card">Loading session...</div>
+          </div>
+
+          <div class="stack">
+            <form id="smtp-form" class="form-grid">
+              <div class="full">
+                <h3>1. SMTP Login</h3>
+              </div>
+              <label>
+                SMTP Host
+                <input type="text" name="host" placeholder="smtp.gmail.com" value="smtp.gmail.com" required />
+              </label>
+              <label>
+                Port
+                <input type="number" name="port" placeholder="465" value="465" required />
+              </label>
+              <label class="checkbox">
+                <input type="checkbox" name="secure" checked />
+                Use SSL
+              </label>
+              <label>
+                Email / Username
+                <input type="email" name="user" placeholder="you@gmail.com" required />
+              </label>
+              <label>
+                Password / App Password
+                <input type="password" name="pass" required />
+              </label>
+              <label class="checkbox">
+                <input type="checkbox" name="tlsRejectUnauthorized" checked />
+                Enforce TLS certificate validation
+              </label>
+              <div class="full inline-actions">
+                <button type="submit" class="primary">Verify SMTP</button>
+                <span id="smtp-status" class="status"></span>
+              </div>
+            </form>
+
+            <form id="resume-form" class="form-grid">
+              <div class="full">
+                <h3>2. Resume & Recipients</h3>
+              </div>
+              <label>
+                Your Name
+                <input type="text" name="fromName" placeholder="Your full name" required />
+              </label>
+              <label>
+                From Email
+                <input type="email" name="fromEmail" placeholder="you@domain.com" required />
+              </label>
+              <label class="full">
+                Resume Upload
+                <input type="file" name="resumeFile" accept=".pdf,.doc,.docx,.txt" required />
+              </label>
+              <label class="full">
+                HR Emails (comma or new line separated)
+                <textarea name="hrEmails" rows="5" placeholder="hr1@company.com, hr2@company.com" required></textarea>
+              </label>
+              <div class="full inline-actions">
+                <button type="submit" class="primary">Save Resume in Memory</button>
+                <span id="resume-status" class="status"></span>
+              </div>
+            </form>
+
+            <form id="send-form" class="form-grid">
+              <div class="full">
+                <h3>3. Template & Send</h3>
+              </div>
+              <label>
+                Profile
+                <select name="domain" required>
+                  <option value="">Select profile</option>
+                  <option value="marketing">Marketing</option>
+                  <option value="hr">HR</option>
+                </select>
+              </label>
+              <label>
+                Fresher Template
+                <select name="templateKey" required>
+                  <option value="">Select template</option>
+                </select>
+              </label>
+              <label class="full">
+                Custom Subject (optional)
+                <input type="text" name="customSubject" placeholder="Leave blank to use template subject" />
+              </label>
+              <label class="full">
+                Additional Note (optional)
+                <textarea name="customNote" rows="4" placeholder="Any extra context you'd like to add"></textarea>
+              </label>
+              <div class="preview-box full">
+                <h3>Email Preview</h3>
+                <pre id="email-preview">Select a profile and template to preview the email.</pre>
+              </div>
+              <div class="full inline-actions">
+                <button type="submit" class="primary">Send Emails</button>
+                <span id="send-status" class="status"></span>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <section class="panel hidden" data-tab-panel="dashboard">
+          <div class="section-head">
+            <div>
+              <h2>Dashboard</h2>
+              <p class="panel-lead">Review the past mails sent in this active session, including subject, recipients, and full content.</p>
+            </div>
+          </div>
+          <div id="dashboard-empty" class="empty-state">No mails have been sent in this session yet.</div>
+          <div id="history-list" class="history-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
