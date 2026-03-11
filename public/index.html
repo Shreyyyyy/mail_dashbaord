@@ -119,9 +119,13 @@
                 <input type="file" name="resumeFile" accept=".pdf,.doc,.docx,.txt" required />
               </label>
               <label class="full">
-                HR Emails (comma or new line separated)
-                <textarea name="hrEmails" rows="5" placeholder="hr1@company.com, hr2@company.com" required></textarea>
+                HR Emails or Pasted Contact Text
+                <textarea name="hrEmails" rows="5" placeholder="Paste any paragraph, list, or forwarded text containing recruiter emails. The app will extract email addresses automatically." required></textarea>
               </label>
+              <div class="full">
+                <h4 class="subsection-title">Detected Recipients</h4>
+                <div id="detected-recipients" class="recipient-list empty-state">No recipients detected yet.</div>
+              </div>
               <div class="full inline-actions">
                 <button type="submit" class="primary">Save Resume in Memory</button>
                 <span id="resume-status" class="status"></span>
@@ -157,6 +161,10 @@
               <div class="preview-box full">
                 <h3>Email Preview</h3>
                 <pre id="email-preview">Select a profile and template to preview the email.</pre>
+              </div>
+              <div class="full">
+                <h4 class="subsection-title">Per-Recipient Mails</h4>
+                <div id="mail-previews" class="mail-preview-list empty-state">Detected recipients and generated mails will appear here.</div>
               </div>
               <div class="full inline-actions">
                 <button type="submit" class="primary">Send Emails</button>

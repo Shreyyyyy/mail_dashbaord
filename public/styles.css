@@ -231,11 +231,49 @@ textarea {
   color: var(--muted);
 }
 
+.status[data-status="success"] {
+  color: var(--forest);
+}
+
+.status[data-status="error"] {
+  color: #a33a23;
+}
+
 .preview-box {
   background: var(--mint);
   padding: 16px;
   border-radius: 16px;
   border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.subsection-title {
+  margin: 0 0 10px;
+}
+
+.recipient-list {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.recipient-chip {
+  background: var(--sand);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+}
+
+.mail-preview-list {
+  display: grid;
+  gap: 16px;
+}
+
+.mail-preview-card {
+  background: #fffdf8;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 18px;
+  padding: 20px;
 }
 
 .history-list {
@@ -249,6 +287,12 @@ textarea {
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 18px;
   padding: 20px;
+}
+
+.history-message + .history-message {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .history-head {

@@ -13,6 +13,8 @@ const templateSelect = sendForm.elements.templateKey;
 const sessionSummary = document.getElementById("session-summary");
 const historyList = document.getElementById("history-list");
 const dashboardEmpty = document.getElementById("dashboard-empty");
+const detectedRecipients = document.getElementById("detected-recipients");
+const mailPreviews = document.getElementById("mail-previews");
 
 const session = {
   smtp: null,
@@ -21,18 +23,10 @@ const session = {
   templates: {}
 };
 
-const templateLabels = {
-  marketing: {
-    fresher_campaign: "Campaign starter",
-    fresher_growth: "Growth-focused",
-    fresher_brand: "Brand and content"
-  },
-  hr: {
-    fresher_people_ops: "People operations",
-    fresher_talent: "Talent acquisition",
-    fresher_generalist: "HR generalist"
-  }
-};
+function setStatus(element, text, type = "info") {
+  element.textContent = text;
+  element.dataset.status = type;
+}
 
 function setActiveTab(name) {
   tabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.tab === name));
@@ -43,12 +37,21 @@ tabs.forEach((tab) => {
   tab.addEventListener("click", () => setActiveTab(tab.dataset.tab));
 });
 
+async function requestJson(url, options = {}) {
+  const response = await fetch(url, options);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || "Request failed.");
+  }
+  return data;
+}
+
 function renderSessionSummary() {
   const smtpText = session.smtp
     ? `SMTP ready: ${session.smtp.user} via ${session.smtp.host}:${session.smtp.port}`
     : "SMTP not verified";
   const resumeText = session.resume
-    ? `Resume saved for ${session.resume.fromName}`
+    ? `Resume saved for ${session.resume.fromName}${session.resume.resumeFileName ? ` (${session.resume.resumeFileName})` : ""}`
     : "Resume not saved";
   const historyText = `${session.history.length} mail${session.history.length === 1 ? "" : "s"} in dashboard`;
 
@@ -61,19 +64,23 @@ function renderSessionSummary() {
 
 function fillFormsFromSession() {
   if (session.smtp) {
-    smtpForm.elements.host.value = session.smtp.host || "";
-    smtpForm.elements.port.value = session.smtp.port || "";
+    smtpForm.elements.host.value = session.smtp.host || "smtp.gmail.com";
+    smtpForm.elements.port.value = session.smtp.port || "465";
     smtpForm.elements.user.value = session.smtp.user || "";
     smtpForm.elements.secure.checked = Boolean(session.smtp.secure);
     smtpForm.elements.tlsRejectUnauthorized.checked = session.smtp.tlsRejectUnauthorized !== false;
-    smtpStatus.textContent = "SMTP is loaded from session memory.";
+    setStatus(smtpStatus, "SMTP is loaded from session memory.", "success");
   }
 
   if (session.resume) {
     resumeForm.elements.fromName.value = session.resume.fromName || "";
     resumeForm.elements.fromEmail.value = session.resume.fromEmail || "";
     resumeForm.elements.hrEmails.value = session.resume.hrEmails || "";
-    resumeStatus.textContent = `Resume details are loaded from session memory (${session.resume.resumeFileName}).`;
+    setStatus(
+      resumeStatus,
+      `Resume details are loaded from session memory (${session.resume.resumeFileName}). ${session.resume.recipientCount || 0} recipient${session.resume.recipientCount === 1 ? "" : "s"} detected.`,
+      "success"
+    );
   }
 }
 
@@ -87,7 +94,7 @@ function renderTemplateOptions() {
   options.forEach((option) => {
     const el = document.createElement("option");
     el.value = option.key;
-    el.textContent = templateLabels[domain]?.[option.key] || option.subject;
+    el.textContent = option.label || option.subject;
     templateSelect.appendChild(el);
   });
 
@@ -96,61 +103,49 @@ function renderTemplateOptions() {
   }
 }
 
-function currentTemplate() {
-  const domain = sendForm.elements.domain.value;
-  const templateKey = sendForm.elements.templateKey.value;
-  return (session.templates[domain] || []).find((option) => option.key === templateKey);
-}
-
-function updatePreview() {
-  const template = currentTemplate();
-  if (!template || !session.resume) {
-    preview.textContent = "Select a profile and template to preview the email.";
+function renderDetectedRecipients(recipients) {
+  if (!recipients.length) {
+    detectedRecipients.textContent = "No recipients detected yet.";
+    detectedRecipients.className = "recipient-list empty-state";
     return;
   }
 
-  const subject = sendForm.elements.customSubject.value.trim() || template.subject;
-  const customNote = sendForm.elements.customNote.value.trim();
-
-  fetch("/api/session")
-    .then((res) => res.json())
-    .then((data) => {
-      session.templates = data.templates || session.templates;
-      const options = session.templates[sendForm.elements.domain.value] || [];
-      const selected = options.find((option) => option.key === sendForm.elements.templateKey.value);
-      if (!selected) throw new Error("Template not found.");
-
-      const body = buildPreviewBody(sendForm.elements.domain.value, sendForm.elements.templateKey.value);
-      preview.textContent = `Subject: ${subject}\n\n${customNote ? `${body}\n\nAdditional Note:\n${customNote}` : body}`;
+  detectedRecipients.className = "recipient-list";
+  detectedRecipients.innerHTML = recipients
+    .map((recipient) => {
+      const label = recipient.name ? `${escapeHtml(recipient.name)} &lt;${escapeHtml(recipient.email)}&gt;` : escapeHtml(recipient.email);
+      return `<div class="recipient-chip">${label}</div>`;
     })
-    .catch(() => {
-      preview.textContent = "Unable to build preview.";
-    });
+    .join("");
 }
 
-function buildPreviewBody(domain, templateKey) {
-  const name = session.resume.fromName;
-  const resumeText = `Attached resume: ${session.resume.resumeFileName}`;
-  const bodies = {
-    marketing: {
-      fresher_campaign:
-        `Hello [HR Name],\n\nI am ${name}, a fresher eager to begin my career in marketing. I enjoy shaping clear messaging, supporting campaign execution, and learning quickly in fast-moving teams.\n\nHighlights:\n- Strong interest in content, brand communication, and audience research\n- Comfortable with coordination, writing, and structured execution\n- Ready to contribute with energy and consistency from day one\n\nResume:\n${resumeText}\n\nThank you for your time. I would value the opportunity to speak about any suitable marketing openings.\n\nBest regards,\n${name}`,
-      fresher_growth:
-        `Hello [HR Name],\n\nI am ${name}, a fresher interested in marketing roles with a strong growth and performance focus. I am motivated by experimentation, digital channels, and measurable business impact.\n\nHighlights:\n- Interest in social media, campaign analysis, and lead generation\n- Analytical mindset with willingness to test, learn, and improve quickly\n- Strong ownership and follow-through on execution tasks\n\nResume:\n${resumeText}\n\nI would appreciate the chance to discuss how I can support your marketing team in an entry-level role.\n\nBest regards,\n${name}`,
-      fresher_brand:
-        `Hello [HR Name],\n\nI am ${name}, a fresher seeking an opportunity to start my marketing career. I am especially interested in brand building, content planning, and customer-focused communication.\n\nHighlights:\n- Strong written communication and creative problem-solving skills\n- Interest in campaign planning, storytelling, and cross-team collaboration\n- Adaptable, proactive, and committed to continuous learning\n\nResume:\n${resumeText}\n\nPlease consider my profile for relevant fresher marketing roles. I would be glad to connect.\n\nBest regards,\n${name}`
-    },
-    hr: {
-      fresher_people_ops:
-        `Hello [HR Name],\n\nI am ${name}, a fresher looking to begin my career in HR. I am interested in people operations, employee support, and building strong workplace experiences.\n\nHighlights:\n- Strong communication, coordination, and organizational skills\n- Interest in onboarding, employee engagement, and HR processes\n- Reliable, empathetic, and eager to learn from structured HR teams\n\nResume:\n${resumeText}\n\nThank you for your time. I would welcome the opportunity to discuss any entry-level HR openings.\n\nBest regards,\n${name}`,
-      fresher_talent:
-        `Hello [HR Name],\n\nI am ${name}, a fresher interested in HR roles, especially in recruitment and talent coordination. I am keen to contribute to candidate experience and hiring operations.\n\nHighlights:\n- Interest in recruitment workflow, screening coordination, and candidate communication\n- Strong interpersonal skills with an organized and process-oriented approach\n- Quick learner ready to support hiring teams effectively\n\nResume:\n${resumeText}\n\nI would appreciate the opportunity to be considered for fresher HR or talent acquisition openings.\n\nBest regards,\n${name}`,
-      fresher_generalist:
-        `Hello [HR Name],\n\nI am ${name}, a fresher seeking to start my career in human resources. I am motivated by the chance to support employees, improve coordination, and contribute to strong internal processes.\n\nHighlights:\n- Good communication, documentation, and stakeholder coordination skills\n- Interest in policy support, onboarding, and employee engagement activities\n- Dependable and eager to grow within an HR generalist role\n\nResume:\n${resumeText}\n\nPlease consider my profile for suitable entry-level HR opportunities. I would be glad to connect.\n\nBest regards,\n${name}`
-    }
-  };
+function renderMailPreviews(previewData) {
+  if (!previewData?.messages?.length) {
+    mailPreviews.textContent = "Detected recipients and generated mails will appear here.";
+    mailPreviews.className = "mail-preview-list empty-state";
+    return;
+  }
 
-  return bodies?.[domain]?.[templateKey] || "Template not found.";
+  mailPreviews.className = "mail-preview-list";
+  mailPreviews.innerHTML = previewData.messages
+    .map((message) => {
+      const recipientLabel = message.recipient.name
+        ? `${escapeHtml(message.recipient.name)} &lt;${escapeHtml(message.recipient.email)}&gt;`
+        : escapeHtml(message.recipient.email);
+
+      return `
+        <article class="mail-preview-card">
+          <div class="history-head">
+            <div>
+              <h3>${recipientLabel}</h3>
+              <p>${escapeHtml(message.subject)}</p>
+            </div>
+          </div>
+          <pre>${escapeHtml(message.content)}</pre>
+        </article>
+      `;
+    })
+    .join("");
 }
 
 function renderHistory() {
@@ -160,25 +155,88 @@ function renderHistory() {
   session.history.forEach((entry) => {
     const card = document.createElement("article");
     card.className = "history-card";
+    const sentMessages = entry.sentMessages?.length
+      ? entry.sentMessages
+          .map((message) => {
+            const label = message.recipientName
+              ? `${escapeHtml(message.recipientName)} &lt;${escapeHtml(message.recipient)}&gt;`
+              : escapeHtml(message.recipient);
+
+            return `
+              <div class="history-message">
+                <p><strong>To:</strong> ${label}</p>
+                <pre>${escapeHtml(message.content)}</pre>
+              </div>
+            `;
+          })
+          .join("")
+      : `<pre>${escapeHtml(entry.content)}</pre>`;
+
     card.innerHTML = `
       <div class="history-head">
         <div>
-          <h3>${entry.subject}</h3>
+          <h3>${escapeHtml(entry.subject)}</h3>
           <p>${new Date(entry.createdAt).toLocaleString()}</p>
         </div>
-        <span class="pill">${entry.domain.toUpperCase()}</span>
+        <span class="pill">${escapeHtml(entry.domain.toUpperCase())}</span>
       </div>
-      <p><strong>From:</strong> ${entry.fromName} &lt;${entry.fromEmail}&gt;</p>
-      <p><strong>Recipients:</strong> ${entry.recipients.join(", ")}</p>
-      <pre>${entry.content}</pre>
+      <p><strong>From:</strong> ${escapeHtml(entry.fromName)} &lt;${escapeHtml(entry.fromEmail)}&gt;</p>
+      <p><strong>Recipients:</strong> ${entry.recipients.map(escapeHtml).join(", ")}</p>
+      ${sentMessages}
     `;
     historyList.appendChild(card);
   });
 }
 
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+async function refreshPreview() {
+  if (!session.resume) {
+    preview.textContent = "Save resume details first.";
+    renderDetectedRecipients([]);
+    renderMailPreviews(null);
+    return;
+  }
+
+  const domain = sendForm.elements.domain.value;
+  const templateKey = sendForm.elements.templateKey.value;
+  if (!domain || !templateKey) {
+    preview.textContent = "Select a profile and template to preview the email.";
+    renderDetectedRecipients([]);
+    renderMailPreviews(null);
+    return;
+  }
+
+  try {
+    const data = await requestJson("/api/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        domain,
+        templateKey,
+        customSubject: sendForm.elements.customSubject.value,
+        customNote: sendForm.elements.customNote.value
+      })
+    });
+
+    renderDetectedRecipients(data.preview.recipients);
+    preview.textContent = `Subject: ${data.preview.subject}\n\n${data.preview.firstPreview}`;
+    renderMailPreviews(data.preview);
+  } catch (error) {
+    preview.textContent = error.message;
+    renderMailPreviews(null);
+  }
+}
+
 async function loadSession() {
-  const res = await fetch("/api/session");
-  const data = await res.json();
+  const data = await requestJson("/api/session");
   session.smtp = data.smtp || null;
   session.resume = data.resume || null;
   session.history = data.history || [];
@@ -187,115 +245,103 @@ async function loadSession() {
   renderTemplateOptions();
   renderSessionSummary();
   renderHistory();
+  await refreshPreview();
 }
 
 smtpForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  smtpStatus.textContent = "Verifying...";
-
-  const formData = new FormData(smtpForm);
-  const payload = {
-    smtp: {
-      host: formData.get("host"),
-      port: formData.get("port"),
-      secure: formData.get("secure") === "on",
-      user: formData.get("user"),
-      pass: formData.get("pass"),
-      tlsRejectUnauthorized: formData.get("tlsRejectUnauthorized") === "on"
-    }
-  };
+  setStatus(smtpStatus, "Verifying SMTP...", "info");
 
   try {
-    const res = await fetch("/api/verify", {
+    const data = await requestJson("/api/verify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({
+        smtp: {
+          host: smtpForm.elements.host.value,
+          port: smtpForm.elements.port.value,
+          secure: smtpForm.elements.secure.checked,
+          user: smtpForm.elements.user.value,
+          pass: smtpForm.elements.pass.value,
+          tlsRejectUnauthorized: smtpForm.elements.tlsRejectUnauthorized.checked
+        }
+      })
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Verification failed.");
 
     session.smtp = data.smtp;
-    smtpStatus.textContent = "SMTP verified and kept in session memory.";
+    setStatus(smtpStatus, "SMTP verified and kept in session memory.", "success");
     renderSessionSummary();
-  } catch (err) {
-    smtpStatus.textContent = err.message;
+  } catch (error) {
+    setStatus(smtpStatus, error.message, "error");
   }
 });
 
 resumeForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  resumeStatus.textContent = "Saving...";
+  setStatus(resumeStatus, "Saving resume details...", "info");
 
-  const formData = new FormData(resumeForm);
-  const payload = {
-    fromName: formData.get("fromName").trim(),
-    fromEmail: formData.get("fromEmail").trim(),
-    hrEmails: formData.get("hrEmails").trim()
-  };
-  const uploadData = new FormData();
-  uploadData.append("fromName", payload.fromName);
-  uploadData.append("fromEmail", payload.fromEmail);
-  uploadData.append("hrEmails", payload.hrEmails);
-  if (resumeForm.elements.resumeFile.files[0]) {
-    uploadData.append("resumeFile", resumeForm.elements.resumeFile.files[0]);
-  }
+  const uploadData = new FormData(resumeForm);
 
   try {
-    const res = await fetch("/api/resume", {
+    const data = await requestJson("/api/resume", {
       method: "POST",
       body: uploadData
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Resume save failed.");
 
     session.resume = data.resume;
-    resumeStatus.textContent = `Resume file saved in session memory (${data.resume.resumeFileName}).`;
+    renderDetectedRecipients(data.recipients || []);
+    setStatus(
+      resumeStatus,
+      `Resume file saved in session memory (${data.resume.resumeFileName}). ${(data.recipients || []).length} recipient${(data.recipients || []).length === 1 ? "" : "s"} detected.`,
+      "success"
+    );
     renderSessionSummary();
-    updatePreview();
-  } catch (err) {
-    resumeStatus.textContent = err.message;
+    await refreshPreview();
+  } catch (error) {
+    setStatus(resumeStatus, error.message, "error");
   }
 });
 
-sendForm.elements.domain.addEventListener("change", () => {
-  renderTemplateOptions();
-  updatePreview();
+resumeForm.elements.hrEmails.addEventListener("input", () => {
+  preview.textContent = "Save resume details to refresh recipients and preview.";
+  renderDetectedRecipients([]);
+  renderMailPreviews(null);
 });
-sendForm.elements.templateKey.addEventListener("change", updatePreview);
-sendForm.elements.customSubject.addEventListener("input", updatePreview);
-sendForm.elements.customNote.addEventListener("input", updatePreview);
+
+sendForm.elements.domain.addEventListener("change", async () => {
+  renderTemplateOptions();
+  await refreshPreview();
+});
+sendForm.elements.templateKey.addEventListener("change", refreshPreview);
+sendForm.elements.customSubject.addEventListener("input", refreshPreview);
+sendForm.elements.customNote.addEventListener("input", refreshPreview);
 
 sendForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  sendStatus.textContent = "Sending...";
-
-  const formData = new FormData(sendForm);
-  const payload = {
-    domain: formData.get("domain"),
-    templateKey: formData.get("templateKey"),
-    customSubject: formData.get("customSubject"),
-    customNote: formData.get("customNote")
-  };
+  setStatus(sendStatus, "Sending emails...", "info");
 
   try {
-    const res = await fetch("/api/send", {
+    const data = await requestJson("/api/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({
+        domain: sendForm.elements.domain.value,
+        templateKey: sendForm.elements.templateKey.value,
+        customSubject: sendForm.elements.customSubject.value,
+        customNote: sendForm.elements.customNote.value
+      })
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Send failed.");
 
     session.history.unshift(data.entry);
-    sendStatus.textContent = `Sent to ${data.accepted?.length || 0} recipient(s).`;
+    setStatus(sendStatus, `Sent to ${data.entry.recipients.length} recipient(s).`, "success");
     renderSessionSummary();
     renderHistory();
     setActiveTab("dashboard");
-  } catch (err) {
-    sendStatus.textContent = err.message;
+  } catch (error) {
+    setStatus(sendStatus, error.message, "error");
   }
 });
 
-loadSession().catch(() => {
-  sessionSummary.textContent = "Unable to load session.";
+loadSession().catch((error) => {
+  sessionSummary.textContent = error.message || "Unable to load session.";
 });
