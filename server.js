@@ -189,10 +189,41 @@ function buildTransport(smtp) {
 }
 
 function otpTransportConfig() {
+  const smtpUrl = trimToString(process.env.OTP_SMTP_URL);
+  const fromOverride = trimToString(process.env.OTP_FROM_EMAIL);
+  if (smtpUrl) {
+    try {
+      const parsed = new URL(smtpUrl);
+      const secure = parsed.protocol === "smtps:";
+      const port = Number(parsed.port || (secure ? 465 : 587));
+      const user = decodeURIComponent(parsed.username || "");
+      const pass = decodeURIComponent(parsed.password || "");
+      const from = fromOverride || user;
+
+      if (!parsed.hostname || !user || !pass || !from || !Number.isInteger(port)) {
+        return null;
+      }
+
+      return {
+        smtp: {
+          host: parsed.hostname,
+          port,
+          secure,
+          user,
+          pass,
+          tlsRejectUnauthorized: String(process.env.OTP_SMTP_TLS_REJECT_UNAUTHORIZED || "true") !== "false"
+        },
+        from
+      };
+    } catch {
+      return null;
+    }
+  }
+
   const host = trimToString(process.env.OTP_SMTP_HOST);
   const user = trimToString(process.env.OTP_SMTP_USER);
   const pass = trimToString(process.env.OTP_SMTP_PASS);
-  const from = trimToString(process.env.OTP_FROM_EMAIL);
+  const from = fromOverride;
   const port = Number(process.env.OTP_SMTP_PORT || 465);
 
   if (!host || !user || !pass || !from || !Number.isInteger(port)) return null;

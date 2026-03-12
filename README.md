@@ -39,6 +39,21 @@ This repo is Vercel-compatible through:
 
 OTP delivery:
 
+Preferred single-env setup:
+
+- `OTP_SMTP_URL`
+
+Format:
+
+- `smtps://YOUR_GMAIL%40gmail.com:YOUR_APP_PASSWORD@smtp.gmail.com:465`
+
+Optional:
+
+- `OTP_FROM_EMAIL` if you want a specific from address, otherwise the SMTP username is used
+- `OTP_SMTP_TLS_REJECT_UNAUTHORIZED` optional, default `true`
+
+Fallback multi-env setup:
+
 - `OTP_SMTP_HOST`
 - `OTP_SMTP_PORT`
 - `OTP_SMTP_USER`
