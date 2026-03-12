@@ -19,7 +19,7 @@ Open `http://127.0.0.1:3000`.
 
 ## Local Development OTP
 
-If OTP mailer env vars are not configured and `NODE_ENV` is not `production`, the OTP response includes a `devOtp` value for testing.
+If the OTP mail provider env vars are not configured and `NODE_ENV` is not `production`, the OTP response includes a `devOtp` value for testing.
 
 ## Check
 
@@ -37,30 +37,15 @@ This repo is Vercel-compatible through:
 
 ## Required Environment Variables For Production
 
-OTP delivery:
+OTP delivery with no app password:
 
-Preferred single-env setup:
-
-- `OTP_SMTP_URL`
-
-Format:
-
-- `smtps://YOUR_GMAIL%40gmail.com:YOUR_APP_PASSWORD@smtp.gmail.com:465`
-
-Optional:
-
-- `OTP_FROM_EMAIL` if you want a specific from address, otherwise the SMTP username is used
-- `OTP_SMTP_TLS_REJECT_UNAUTHORIZED` optional, default `true`
-
-Fallback multi-env setup:
-
-- `OTP_SMTP_HOST`
-- `OTP_SMTP_PORT`
-- `OTP_SMTP_USER`
-- `OTP_SMTP_PASS`
+- `RESEND_API_KEY`
 - `OTP_FROM_EMAIL`
-- `OTP_SMTP_SECURE` optional, default `true`
-- `OTP_SMTP_TLS_REJECT_UNAUTHORIZED` optional, default `true`
+
+Example:
+
+- `RESEND_API_KEY=re_xxxxxxxxx`
+- `OTP_FROM_EMAIL=login@yourdomain.com`
 
 Persistent storage on Vercel:
 

@@ -4,6 +4,7 @@ const express = require("express");
 const helmet = require("helmet");
 const multer = require("multer");
 const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 
 const app = express();
 
@@ -188,67 +189,24 @@ function buildTransport(smtp) {
   });
 }
 
-function otpTransportConfig() {
-  const smtpUrl = trimToString(process.env.OTP_SMTP_URL);
-  const fromOverride = trimToString(process.env.OTP_FROM_EMAIL);
-  if (smtpUrl) {
-    try {
-      const parsed = new URL(smtpUrl);
-      const secure = parsed.protocol === "smtps:";
-      const port = Number(parsed.port || (secure ? 465 : 587));
-      const user = decodeURIComponent(parsed.username || "");
-      const pass = decodeURIComponent(parsed.password || "");
-      const from = fromOverride || user;
-
-      if (!parsed.hostname || !user || !pass || !from || !Number.isInteger(port)) {
-        return null;
-      }
-
-      return {
-        smtp: {
-          host: parsed.hostname,
-          port,
-          secure,
-          user,
-          pass,
-          tlsRejectUnauthorized: String(process.env.OTP_SMTP_TLS_REJECT_UNAUTHORIZED || "true") !== "false"
-        },
-        from
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  const host = trimToString(process.env.OTP_SMTP_HOST);
-  const user = trimToString(process.env.OTP_SMTP_USER);
-  const pass = trimToString(process.env.OTP_SMTP_PASS);
-  const from = fromOverride;
-  const port = Number(process.env.OTP_SMTP_PORT || 465);
-
-  if (!host || !user || !pass || !from || !Number.isInteger(port)) return null;
+function otpProviderConfig() {
+  const apiKey = trimToString(process.env.RESEND_API_KEY);
+  const from = trimToString(process.env.OTP_FROM_EMAIL);
+  if (!apiKey || !from) return null;
   return {
-    smtp: {
-      host,
-      port,
-      secure: String(process.env.OTP_SMTP_SECURE || "true") !== "false",
-      user,
-      pass,
-      tlsRejectUnauthorized: String(process.env.OTP_SMTP_TLS_REJECT_UNAUTHORIZED || "true") !== "false"
-    },
+    resend: new Resend(apiKey),
     from
   };
 }
 
 async function sendOtpEmail(email, otp) {
-  const config = otpTransportConfig();
+  const config = otpProviderConfig();
   if (!config) {
     if (NODE_ENV !== "production") return { devOtp: otp };
-    throw new Error("OTP mail transport is not configured.");
+    throw new Error("OTP mail provider is not configured.");
   }
 
-  const transport = buildTransport(config.smtp);
-  await transport.sendMail({
+  await config.resend.emails.send({
     from: config.from,
     to: email,
     subject: "Your login OTP",
