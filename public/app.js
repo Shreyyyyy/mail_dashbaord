@@ -121,6 +121,17 @@ function fillSetupForm() {
   if (profile) {
     setupForm.elements.fromName.value = profile.fromName || "";
     setupForm.elements.fromEmail.value = profile.fromEmail || "";
+    setupForm.elements.phone.value = profile.phone || "";
+    setupForm.elements.location.value = profile.location || "";
+    setupForm.elements.currentRole.value = profile.currentRole || "";
+    setupForm.elements.currentCompany.value = profile.currentCompany || "";
+    setupForm.elements.yearsExperience.value = profile.yearsExperience || "";
+    setupForm.elements.primarySkills.value = profile.primarySkills || "";
+    setupForm.elements.keyProjects.value = profile.keyProjects || "";
+    setupForm.elements.education.value = profile.education || "";
+    setupForm.elements.portfolioUrl.value = profile.portfolioUrl || "";
+    setupForm.elements.linkedinUrl.value = profile.linkedinUrl || "";
+    setupForm.elements.githubUrl.value = profile.githubUrl || "";
     setupForm.elements.domain.value = profile.domain || "";
     renderTemplateOptions();
     setupForm.elements.templateKey.value = profile.templateKey || "";

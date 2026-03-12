@@ -26,6 +26,58 @@ const ALLOWED_RESUME_TYPES = new Set([
   "text/plain"
 ]);
 
+function compactLines(lines) {
+  return lines.filter(Boolean).join("\n");
+}
+
+function buildProfileSummary(profile) {
+  const lines = [];
+  if (profile.currentRole || profile.currentCompany) {
+    lines.push([profile.currentRole, profile.currentCompany ? `at ${profile.currentCompany}` : ""].filter(Boolean).join(" "));
+  }
+  if (profile.yearsExperience) lines.push(`${profile.yearsExperience} years of experience`);
+  if (profile.location) lines.push(`Based in ${profile.location}`);
+  if (profile.primarySkills) lines.push(`Skills: ${profile.primarySkills}`);
+  if (profile.keyProjects) lines.push(`Projects: ${profile.keyProjects}`);
+  if (profile.education) lines.push(`Education: ${profile.education}`);
+  return lines.join("\n");
+}
+
+function buildProfileLinks(profile) {
+  const links = [];
+  if (profile.portfolioUrl) links.push(`Portfolio: ${profile.portfolioUrl}`);
+  if (profile.githubUrl) links.push(`GitHub: ${profile.githubUrl}`);
+  if (profile.linkedinUrl) links.push(`LinkedIn: ${profile.linkedinUrl}`);
+  if (profile.phone) links.push(`Phone: ${profile.phone}`);
+  return links.join("\n");
+}
+
+function buildRoleTemplate({ label, subject, intro, highlights, closing }) {
+  return {
+    label,
+    subject,
+    body: ({ greeting, name, resumeText, profileSummary, profileLinks }) =>
+      compactLines([
+        greeting,
+        "",
+        intro.replaceAll("{name}", name),
+        "",
+        "Highlights:",
+        ...highlights.map((item) => `- ${item}`),
+        "",
+        profileSummary ? `Profile Snapshot:\n${profileSummary}` : "",
+        "",
+        `Resume:\n${resumeText}`,
+        "",
+        profileLinks ? `Links:\n${profileLinks}` : "",
+        "",
+        closing,
+        "",
+        `Best regards,\n${name}`
+      ])
+  };
+}
+
 const templates = {
   marketing: {
     fresher_campaign: {
@@ -66,6 +118,85 @@ const templates = {
       body: ({ greeting, name, resumeText }) =>
         `${greeting}\n\nI am ${name}, a fresher seeking to start my career in human resources. I am motivated by the chance to support employees, improve coordination, and contribute to strong internal processes.\n\nHighlights:\n- Good communication, documentation, and stakeholder coordination skills\n- Interest in policy support, onboarding, and employee engagement activities\n- Dependable and eager to grow within an HR generalist role\n\nResume:\n${resumeText}\n\nPlease consider my profile for suitable entry-level HR opportunities. I would be glad to connect.\n\nBest regards,\n${name}`
     }
+  },
+  engineering: {
+    ai_ml_engineer: buildRoleTemplate({
+      label: "AI / ML engineer",
+      subject: "Application for AI / ML Engineer Role",
+      intro: "I am {name}, applying for AI / ML engineer opportunities. I focus on building practical machine learning systems, shipping model-backed features, and improving model quality with measurable outcomes.",
+      highlights: [
+        "Experience with ML workflows, model evaluation, and production-oriented problem solving",
+        "Comfortable with Python, data pipelines, experimentation, and integrating models into applications",
+        "Interested in applied AI work across LLM features, recommendation systems, forecasting, or predictive modeling"
+      ],
+      closing: "I would appreciate the opportunity to discuss how my background can support your AI and machine learning roadmap."
+    }),
+    full_stack_developer: buildRoleTemplate({
+      label: "Full stack developer",
+      subject: "Application for Full Stack Developer Role",
+      intro: "I am {name}, applying for full stack developer roles. I enjoy building end-to-end products across backend services, frontend experiences, APIs, and deployment workflows.",
+      highlights: [
+        "Hands-on experience across UI development, server-side implementation, and database-backed applications",
+        "Strong focus on shipping reliable features, debugging efficiently, and maintaining clean code",
+        "Comfortable collaborating across product, design, and engineering to deliver production-ready systems"
+      ],
+      closing: "Please consider my profile for full stack opportunities where strong ownership and product-minded engineering are valued."
+    }),
+    frontend_developer: buildRoleTemplate({
+      label: "Frontend developer",
+      subject: "Application for Frontend Developer Role",
+      intro: "I am {name}, applying for frontend developer roles. I focus on building responsive, accessible, and high-quality interfaces with strong attention to performance and usability.",
+      highlights: [
+        "Experience turning product requirements into polished web experiences",
+        "Comfortable with modern JavaScript frameworks, state management, and API integration",
+        "Strong interest in UI quality, performance tuning, and maintainable component systems"
+      ],
+      closing: "I would value the opportunity to contribute to frontend teams building thoughtful user-facing products."
+    }),
+    backend_developer: buildRoleTemplate({
+      label: "Backend developer",
+      subject: "Application for Backend Developer Role",
+      intro: "I am {name}, applying for backend developer roles. I enjoy designing APIs, building reliable services, and working on systems that scale cleanly under real product demands.",
+      highlights: [
+        "Experience with backend application logic, databases, integrations, and service reliability",
+        "Comfortable with performance tuning, debugging, and maintainable service design",
+        "Strong interest in clean architecture, data correctness, and production operations"
+      ],
+      closing: "Please consider my profile for backend engineering opportunities where reliability and implementation quality matter."
+    }),
+    data_engineer: buildRoleTemplate({
+      label: "Data engineer",
+      subject: "Application for Data Engineer Role",
+      intro: "I am {name}, applying for data engineer roles. I focus on building dependable data pipelines, clean data models, and systems that help teams trust and use data effectively.",
+      highlights: [
+        "Experience with ETL or ELT workflows, data transformation, and pipeline reliability",
+        "Comfortable working with SQL, Python, warehousing concepts, and automation",
+        "Interested in building scalable data foundations for analytics and machine learning use cases"
+      ],
+      closing: "I would appreciate the chance to discuss data engineering opportunities aligned with platform quality and business impact."
+    }),
+    devops_engineer: buildRoleTemplate({
+      label: "DevOps / platform engineer",
+      subject: "Application for DevOps / Platform Engineer Role",
+      intro: "I am {name}, applying for DevOps and platform engineering roles. I enjoy improving delivery workflows, infrastructure reliability, and developer productivity across environments.",
+      highlights: [
+        "Experience with CI/CD, deployment automation, observability, and infrastructure workflows",
+        "Comfortable with cloud services, containers, scripting, and operational debugging",
+        "Strong focus on reliability, automation, and reducing friction in engineering systems"
+      ],
+      closing: "Please consider my profile for DevOps or platform engineering roles where operational excellence and automation are important."
+    }),
+    qa_engineer: buildRoleTemplate({
+      label: "QA / SDET",
+      subject: "Application for QA Engineer / SDET Role",
+      intro: "I am {name}, applying for QA engineer and SDET roles. I focus on improving product quality through structured testing, automation, and careful defect analysis.",
+      highlights: [
+        "Experience with test planning, bug investigation, and automation-driven quality workflows",
+        "Comfortable validating APIs, UI behavior, regression coverage, and release readiness",
+        "Strong attention to detail with a practical mindset around product risk reduction"
+      ],
+      closing: "I would welcome the opportunity to contribute to teams that value strong quality engineering practices."
+    })
   }
 };
 
@@ -248,6 +379,17 @@ function sanitizeUser(user) {
       ? {
           fromName: user.senderProfile.fromName,
           fromEmail: user.senderProfile.fromEmail,
+          phone: user.senderProfile.phone,
+          location: user.senderProfile.location,
+          currentRole: user.senderProfile.currentRole,
+          currentCompany: user.senderProfile.currentCompany,
+          yearsExperience: user.senderProfile.yearsExperience,
+          primarySkills: user.senderProfile.primarySkills,
+          keyProjects: user.senderProfile.keyProjects,
+          education: user.senderProfile.education,
+          portfolioUrl: user.senderProfile.portfolioUrl,
+          linkedinUrl: user.senderProfile.linkedinUrl,
+          githubUrl: user.senderProfile.githubUrl,
           resumeFileName: user.senderProfile.resumeFileName,
           domain: user.senderProfile.domain,
           templateKey: user.senderProfile.templateKey,
@@ -308,6 +450,17 @@ function validateSmtpPayload(smtp) {
 function validateSenderProfile(body, file) {
   const fromName = trimToString(body?.fromName);
   const fromEmail = trimToString(body?.fromEmail);
+  const phone = trimToString(body?.phone);
+  const location = trimToString(body?.location);
+  const currentRole = trimToString(body?.currentRole);
+  const currentCompany = trimToString(body?.currentCompany);
+  const yearsExperience = trimToString(body?.yearsExperience);
+  const primarySkills = trimToString(body?.primarySkills);
+  const keyProjects = trimToString(body?.keyProjects);
+  const education = trimToString(body?.education);
+  const portfolioUrl = trimToString(body?.portfolioUrl);
+  const linkedinUrl = trimToString(body?.linkedinUrl);
+  const githubUrl = trimToString(body?.githubUrl);
   const domain = trimToString(body?.domain);
   const templateKey = trimToString(body?.templateKey);
   const customSubject = trimToString(body?.customSubject);
@@ -316,11 +469,25 @@ function validateSenderProfile(body, file) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fromEmail)) return { error: "Provide a valid sender email." };
   if (!templates[domain]?.[templateKey]) return { error: "Select a valid profile and template." };
   if (customSubject.length > MAX_TEXT_LEN || customNote.length > MAX_TEXT_LEN) return { error: "Subject or note is too long." };
+  if ([phone, location, currentRole, currentCompany, yearsExperience, primarySkills, keyProjects, education, portfolioUrl, linkedinUrl, githubUrl].some((value) => value.length > MAX_TEXT_LEN)) {
+    return { error: "One or more profile fields are too long." };
+  }
   if (!file) return { error: "Upload a resume file." };
   return {
     value: {
       fromName,
       fromEmail,
+      phone,
+      location,
+      currentRole,
+      currentCompany,
+      yearsExperience,
+      primarySkills,
+      keyProjects,
+      education,
+      portfolioUrl,
+      linkedinUrl,
+      githubUrl,
       domain,
       templateKey,
       customSubject,
@@ -340,7 +507,9 @@ function buildMessages(user, recipientText) {
     const body = template.body({
       greeting: buildGreeting(recipient, recipients.length),
       name: user.senderProfile.fromName,
-      resumeText: `Attached resume: ${user.senderProfile.resumeFileName}`
+      resumeText: `Attached resume: ${user.senderProfile.resumeFileName}`,
+      profileSummary: buildProfileSummary(user.senderProfile),
+      profileLinks: buildProfileLinks(user.senderProfile)
     });
     const content = user.senderProfile.customNote ? `${body}\n\nAdditional Note:\n${user.senderProfile.customNote}` : body;
     return { recipient, subject, content };
