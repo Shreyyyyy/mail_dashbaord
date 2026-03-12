@@ -1,14 +1,14 @@
-# Hiring Mail Sender
+# Hiring Mail Portal
 
-Single-user mail sender for non-technical usage.
+Multi-user OTP-based hiring mail portal designed to run serverless on Vercel.
 
-The app is designed for this workflow:
+Each user:
 
-1. One technical/admin person completes setup once.
-2. SMTP, sender identity, resume, and default template are saved on disk in `app-data/state.json`.
-3. After that, the day-to-day user only pastes hiring-team email IDs in the `Send Now` tab and clicks send.
+1. logs in with OTP on their own email
+2. saves their own SMTP + resume + template setup
+3. gets their own send screen and dashboard
 
-## Run
+## Local Run
 
 ```bash
 npm install
@@ -17,58 +17,54 @@ npm start
 
 Open `http://127.0.0.1:3000`.
 
+## Local Development OTP
+
+If OTP mailer env vars are not configured and `NODE_ENV` is not `production`, the OTP response includes a `devOtp` value for testing.
+
 ## Check
 
 ```bash
 npm run check
 ```
 
-## Persistent Setup
+## Vercel Deployment
 
-The one-time setup stores:
+This repo is Vercel-compatible through:
 
-- SMTP host, port, username, password
-- Sender name and sender email
-- Resume file
-- Default profile and template
-- Optional default subject override
-- Optional default additional note
+- [`api/index.js`](/home/shrey/projects/mail/api/index.js)
+- [`vercel.json`](/home/shrey/projects/mail/vercel.json)
+- exported Express app in [`server.js`](/home/shrey/projects/mail/server.js)
 
-Local development:
+## Required Environment Variables For Production
 
-- setup is stored in process memory only
-- restarting the local server clears configured state
+OTP delivery:
 
-Vercel deployment:
+- `OTP_SMTP_HOST`
+- `OTP_SMTP_PORT`
+- `OTP_SMTP_USER`
+- `OTP_SMTP_PASS`
+- `OTP_FROM_EMAIL`
+- `OTP_SMTP_SECURE` optional, default `true`
+- `OTP_SMTP_TLS_REJECT_UNAUTHORIZED` optional, default `true`
 
-- if `KV_REST_API_URL` and `KV_REST_API_TOKEN` are configured, setup/history are persisted in Vercel KV
-- if KV is not configured, setup/history fall back to in-memory storage and will not reliably persist across invocations
+Persistent storage on Vercel:
 
-## Day-To-Day Use
+- `KV_REST_API_URL`
+- `KV_REST_API_TOKEN`
 
-The non-technical user only needs to:
+Without KV:
 
-1. Open `Send Now`
-2. Paste recruiter / hiring-team emails
-3. Review detected recipients and preview
-4. Click `Send Emails`
+- local development uses in-memory fallback
+- Vercel deployment will not reliably persist users, sessions, OTPs, or dashboards across invocations
 
-## Endpoints
+## API Overview
 
+- `GET /api/bootstrap`
+- `POST /api/auth/request-otp`
+- `POST /api/auth/verify-otp`
+- `POST /api/auth/logout`
+- `POST /api/user/setup/verify-smtp`
+- `POST /api/user/setup`
+- `POST /api/user/send/preview`
+- `POST /api/user/send`
 - `GET /health`
-- `GET /api/state`
-- `POST /api/setup`
-- `POST /api/send/preview`
-- `POST /api/send`
-
-## Vercel
-
-This repo now includes:
-
-- [`api/index.js`](/home/shrey/projects/mail/api/index.js) as the serverless entrypoint
-- [`vercel.json`](/home/shrey/projects/mail/vercel.json) for routing
-
-Important:
-
-- Do not rely on local filesystem writes on Vercel
-- Configure Vercel KV or another external store if you want one-time setup to persist

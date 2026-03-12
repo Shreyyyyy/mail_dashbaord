@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Hiring Mail Sender</title>
+    <title>Mail Portal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -16,140 +16,215 @@
     <div class="page">
       <header class="hero">
         <div class="hero-content">
-          <p class="badge">One-Time Setup Mode</p>
-          <h1>Hiring Mail Sender</h1>
+          <p class="badge">Multi-User OTP Portal</p>
+          <h1>Hiring Mail Portal</h1>
           <p class="subhead">
-            Configure SMTP, resume, and default email once. After that, the user only needs to paste hiring-team email IDs and press send.
+            Each user logs in with OTP on their own email, sets up their own SMTP and resume, then sends hiring mails from their own dashboard.
           </p>
         </div>
         <div class="hero-panel">
-          <div class="hero-card" id="sender-summary">Loading configuration...</div>
+          <div class="hero-card" id="account-summary">Loading...</div>
         </div>
       </header>
 
       <main class="app">
-        <nav class="tabbar">
-          <button class="tab active" data-tab="send">Send Now</button>
-          <button class="tab" data-tab="setup">Setup Once</button>
-          <button class="tab" data-tab="dashboard">Dashboard</button>
-        </nav>
-
-        <section class="panel" data-tab-panel="send">
+        <section class="panel" id="auth-panel">
           <div class="section-head">
             <div>
-              <h2>Send Now</h2>
-              <p class="panel-lead">Paste any hiring-team email IDs or paragraph containing emails. The configured sender profile will be used automatically.</p>
+              <h2>Authentication</h2>
+              <p class="panel-lead">Create an account with your email or log in to an existing one. Both flows use OTP verification.</p>
             </div>
           </div>
-          <form id="quick-send-form" class="form-grid">
-            <label class="full">
-              Hiring Team Emails
-              <textarea name="recipientText" rows="6" placeholder="Paste emails or a paragraph containing recruiter emails." required></textarea>
-            </label>
-            <div class="full">
-              <h4 class="subsection-title">Detected Recipients</h4>
-              <div id="detected-recipients" class="recipient-list empty-state">No recipients detected yet.</div>
-            </div>
-            <div class="preview-box full">
-              <h3>Mail Preview</h3>
-              <pre id="email-preview">Paste emails to preview the generated mails.</pre>
-            </div>
-            <div class="full">
-              <h4 class="subsection-title">Per-Recipient Mails</h4>
-              <div id="mail-previews" class="mail-preview-list empty-state">Generated mails will appear here.</div>
-            </div>
-            <div class="full inline-actions">
-              <button type="submit" class="primary">Send Emails</button>
-              <span id="send-status" class="status"></span>
-            </div>
-          </form>
-        </section>
+          <div class="auth-layout">
+            <section class="auth-card">
+              <h3>Register</h3>
+              <p class="panel-lead">New users create their own account with email OTP.</p>
+              <form id="register-request-form" class="form-grid">
+                <label class="full">
+                  Email Address
+                  <input type="email" name="email" placeholder="you@example.com" required />
+                </label>
+                <div class="full inline-actions">
+                  <button type="submit" class="primary">Send Registration OTP</button>
+                  <span id="register-request-status" class="status"></span>
+                </div>
+              </form>
+              <form id="register-verify-form" class="form-grid">
+                <label>
+                  Email Address
+                  <input type="email" name="email" placeholder="you@example.com" required />
+                </label>
+                <label>
+                  OTP
+                  <input type="text" name="otp" placeholder="6 digit OTP" required />
+                </label>
+                <div class="full inline-actions">
+                  <button type="submit" class="primary">Create Account</button>
+                  <span id="register-verify-status" class="status"></span>
+                </div>
+              </form>
+            </section>
 
-        <section class="panel hidden" data-tab-panel="setup">
-          <div class="section-head">
-            <div>
-              <h2>Setup Once</h2>
-              <p class="panel-lead">This should be done once by the person managing the sender account.</p>
-            </div>
+            <section class="auth-card">
+              <h3>Login</h3>
+              <p class="panel-lead">Existing users log in with an OTP sent to their registered email.</p>
+              <form id="login-request-form" class="form-grid">
+                <label class="full">
+                  Email Address
+                  <input type="email" name="email" placeholder="you@example.com" required />
+                </label>
+                <div class="full inline-actions">
+                  <button type="submit" class="primary">Send Login OTP</button>
+                  <span id="login-request-status" class="status"></span>
+                </div>
+              </form>
+              <form id="login-verify-form" class="form-grid">
+                <label>
+                  Email Address
+                  <input type="email" name="email" placeholder="you@example.com" required />
+                </label>
+                <label>
+                  OTP
+                  <input type="text" name="otp" placeholder="6 digit OTP" required />
+                </label>
+                <div class="full inline-actions">
+                  <button type="submit" class="primary">Login</button>
+                  <span id="login-verify-status" class="status"></span>
+                </div>
+              </form>
+            </section>
           </div>
-          <form id="setup-form" class="form-grid">
-            <div class="full">
-              <h3>SMTP</h3>
-            </div>
-            <label>
-              SMTP Host
-              <input type="text" name="host" value="smtp.gmail.com" required />
-            </label>
-            <label>
-              Port
-              <input type="number" name="port" value="465" required />
-            </label>
-            <label class="checkbox">
-              <input type="checkbox" name="secure" checked />
-              Use SSL
-            </label>
-            <label>
-              Email / Username
-              <input type="email" name="user" placeholder="you@gmail.com" required />
-            </label>
-            <label>
-              Password / App Password
-              <input type="password" name="pass" required />
-            </label>
-            <label class="checkbox">
-              <input type="checkbox" name="tlsRejectUnauthorized" checked />
-              Enforce TLS certificate validation
-            </label>
-
-            <div class="full">
-              <h3>Sender Profile</h3>
-            </div>
-            <label>
-              Sender Name
-              <input type="text" name="fromName" required />
-            </label>
-            <label>
-              Sender Email
-              <input type="email" name="fromEmail" required />
-            </label>
-            <label class="full">
-              Resume Upload
-              <input type="file" name="resumeFile" accept=".pdf,.doc,.docx,.txt" required />
-            </label>
-            <label>
-              Default Profile
-              <select name="domain" required>
-                <option value="">Select profile</option>
-                <option value="marketing">Marketing</option>
-                <option value="hr">HR</option>
-              </select>
-            </label>
-            <label>
-              Default Template
-              <select name="templateKey" required>
-                <option value="">Select template</option>
-              </select>
-            </label>
-            <label class="full">
-              Default Subject Override (optional)
-              <input type="text" name="customSubject" placeholder="Leave blank to use the template subject" />
-            </label>
-            <label class="full">
-              Default Additional Note (optional)
-              <textarea name="customNote" rows="4" placeholder="Optional note appended to every mail"></textarea>
-            </label>
-            <div class="full inline-actions">
-              <button type="submit" class="primary">Save Setup</button>
-              <span id="setup-status" class="status"></span>
-            </div>
-          </form>
         </section>
 
-        <section class="panel hidden" data-tab-panel="dashboard">
-          <h2>Dashboard</h2>
-          <p class="panel-lead">Recent sent mails for this configured sender.</p>
-          <div id="dashboard-empty" class="empty-state">No mails have been sent yet.</div>
-          <div id="history-list" class="history-list"></div>
+        <section id="portal-shell" class="hidden">
+          <nav class="tabbar">
+            <button class="tab active" data-tab="send">Send</button>
+            <button class="tab" data-tab="setup">My Setup</button>
+            <button class="tab" data-tab="dashboard">Dashboard</button>
+            <button class="tab danger-tab" id="logout-button" type="button">Logout</button>
+          </nav>
+
+          <section class="panel" data-tab-panel="send">
+            <div class="section-head">
+              <div>
+                <h2>Send Mails</h2>
+                <p class="panel-lead">Paste recruiter emails. The system will use your saved SMTP, resume, and template.</p>
+              </div>
+            </div>
+            <form id="quick-send-form" class="form-grid">
+              <label class="full">
+                Hiring Team Emails
+                <textarea name="recipientText" rows="6" placeholder="Paste emails or a paragraph containing recruiter emails." required></textarea>
+              </label>
+              <div class="full">
+                <h4 class="subsection-title">Detected Recipients</h4>
+                <div id="detected-recipients" class="recipient-list empty-state">No recipients detected yet.</div>
+              </div>
+              <div class="preview-box full">
+                <h3>Mail Preview</h3>
+                <pre id="email-preview">Paste emails to preview the generated mails.</pre>
+              </div>
+              <div class="full">
+                <h4 class="subsection-title">Per-Recipient Mails</h4>
+                <div id="mail-previews" class="mail-preview-list empty-state">Generated mails will appear here.</div>
+              </div>
+              <div class="full inline-actions">
+                <button type="submit" class="primary">Send Emails</button>
+                <span id="send-status" class="status"></span>
+              </div>
+            </form>
+          </section>
+
+          <section class="panel hidden" data-tab-panel="setup">
+            <div class="section-head">
+              <div>
+                <h2>My Setup</h2>
+                <p class="panel-lead">This setup is private to your account. Other users get their own SMTP, resume, and dashboard.</p>
+              </div>
+            </div>
+            <form id="setup-form" class="form-grid">
+              <div class="full">
+                <h3>Your SMTP</h3>
+              </div>
+              <label>
+                SMTP Host
+                <input type="text" name="host" value="smtp.gmail.com" required />
+              </label>
+              <label>
+                Port
+                <input type="number" name="port" value="465" required />
+              </label>
+              <label class="checkbox">
+                <input type="checkbox" name="secure" checked />
+                Use SSL
+              </label>
+              <label>
+                Email / Username
+                <input type="email" name="user" placeholder="you@gmail.com" required />
+              </label>
+              <label>
+                Password / App Password
+                <input type="password" name="pass" required />
+              </label>
+              <label class="checkbox">
+                <input type="checkbox" name="tlsRejectUnauthorized" checked />
+                Enforce TLS certificate validation
+              </label>
+
+              <div class="full">
+                <h3>Your Sender Profile</h3>
+              </div>
+              <label>
+                Sender Name
+                <input type="text" name="fromName" required />
+              </label>
+              <label>
+                Sender Email
+                <input type="email" name="fromEmail" required />
+              </label>
+              <label class="full">
+                Resume Upload
+                <input type="file" name="resumeFile" accept=".pdf,.doc,.docx,.txt" required />
+              </label>
+              <label>
+                Default Profile
+                <select name="domain" required>
+                  <option value="">Select profile</option>
+                  <option value="marketing">Marketing</option>
+                  <option value="hr">HR</option>
+                </select>
+              </label>
+              <label>
+                Default Template
+                <select name="templateKey" required>
+                  <option value="">Select template</option>
+                </select>
+              </label>
+              <label class="full">
+                Default Subject Override (optional)
+                <input type="text" name="customSubject" placeholder="Leave blank to use template subject" />
+              </label>
+              <label class="full">
+                Default Additional Note (optional)
+                <textarea name="customNote" rows="4" placeholder="Optional note appended to every mail"></textarea>
+              </label>
+              <div class="full inline-actions">
+                <button type="submit" class="primary">Save My Setup</button>
+                <span id="setup-status" class="status"></span>
+              </div>
+            </form>
+          </section>
+
+          <section class="panel hidden" data-tab-panel="dashboard">
+            <div class="section-head">
+              <div>
+                <h2>My Dashboard</h2>
+                <p class="panel-lead">Your own sent-mail history lives here. Other users cannot see it.</p>
+              </div>
+            </div>
+            <div id="dashboard-empty" class="empty-state">No mails have been sent from this account yet.</div>
+            <div id="history-list" class="history-list"></div>
+          </section>
         </section>
       </main>
     </div>

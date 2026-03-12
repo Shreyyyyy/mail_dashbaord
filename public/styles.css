@@ -142,12 +142,36 @@ body {
   color: var(--white);
 }
 
+.danger-tab {
+  margin-left: auto;
+  background: #f5e3dc;
+  color: #8a2e1a;
+}
+
 .section-head {
   display: flex;
   justify-content: space-between;
   gap: 18px;
   align-items: flex-start;
   flex-wrap: wrap;
+}
+
+.auth-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.auth-card {
+  background: linear-gradient(180deg, #fffdf8, #f8f1e6);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 20px;
+  padding: 22px;
+}
+
+.auth-card h3 {
+  margin-top: 0;
 }
 
 .summary-card {
@@ -343,5 +367,9 @@ pre {
   .hero-card,
   .panel {
     padding: 22px;
+  }
+
+  .danger-tab {
+    margin-left: 0;
   }
 }

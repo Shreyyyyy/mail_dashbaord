@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const path = require("path");
 const express = require("express");
 const helmet = require("helmet");
@@ -8,10 +9,15 @@ const app = express();
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "127.0.0.1";
+const NODE_ENV = process.env.NODE_ENV || "development";
+const SESSION_COOKIE = "mail_portal_session";
+const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7;
+const OTP_TTL_MS = 1000 * 60 * 10;
+const OTP_MAX_ATTEMPTS = 5;
 const MAX_HISTORY_ITEMS = 200;
 const MAX_RECIPIENTS = 50;
 const MAX_TEXT_LEN = 2000;
-const STORE_KEY = "mail_app_state_v1";
+const STORE_PREFIX = "mail_portal";
 const ALLOWED_RESUME_TYPES = new Set([
   "application/pdf",
   "application/msword",
@@ -73,85 +79,72 @@ const upload = multer({
   }
 });
 
-const memoryStore = { configured: false, sender: null, history: [] };
+const memoryDb = {
+  kv: new Map()
+};
 
 function trimToString(value) {
   return String(value || "").trim();
 }
 
-function cloneDefaultState() {
-  return { configured: false, sender: null, history: [] };
+function parseCookies(req) {
+  const header = req.headers.cookie || "";
+  return header.split(";").reduce((acc, part) => {
+    const [key, ...rest] = part.trim().split("=");
+    if (!key) return acc;
+    acc[key] = decodeURIComponent(rest.join("="));
+    return acc;
+  }, {});
 }
 
-async function loadKvModule() {
+async function kvClient() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
   try {
-    return require("@vercel/kv");
+    return require("@vercel/kv").kv;
   } catch {
     return null;
   }
 }
 
-async function readState() {
-  const kv = await loadKvModule();
-  if (kv?.kv) {
-    const state = await kv.kv.get(STORE_KEY);
-    return state || cloneDefaultState();
-  }
-  return memoryStore;
+function key(name) {
+  return `${STORE_PREFIX}:${name}`;
 }
 
-async function writeState(nextState) {
-  const kv = await loadKvModule();
-  if (kv?.kv) {
-    await kv.kv.set(STORE_KEY, nextState);
-    return nextState;
+async function storeGet(name) {
+  const kv = await kvClient();
+  if (kv) return (await kv.get(key(name))) || null;
+  return memoryDb.kv.get(key(name)) || null;
+}
+
+async function storeSet(name, value) {
+  const kv = await kvClient();
+  if (kv) {
+    await kv.set(key(name), value);
+    return;
   }
-  memoryStore.configured = nextState.configured;
-  memoryStore.sender = nextState.sender;
-  memoryStore.history = nextState.history;
-  return memoryStore;
+  memoryDb.kv.set(key(name), value);
+}
+
+async function storeDelete(name) {
+  const kv = await kvClient();
+  if (kv) {
+    await kv.del(key(name));
+    return;
+  }
+  memoryDb.kv.delete(key(name));
 }
 
 function publicTemplates() {
   return Object.fromEntries(
     Object.entries(templates).map(([domain, variants]) => [
       domain,
-      Object.entries(variants).map(([key, template]) => ({
-        key,
+      Object.entries(variants).map(([variantKey, template]) => ({
+        key: variantKey,
         label: template.label,
         subject: template.subject
       }))
     ])
   );
-}
-
-function sanitizeState(state) {
-  return {
-    configured: Boolean(state.configured),
-    sender: state.sender
-      ? {
-          smtp: {
-            host: state.sender.smtp.host,
-            port: state.sender.smtp.port,
-            secure: state.sender.smtp.secure,
-            user: state.sender.smtp.user,
-            tlsRejectUnauthorized: state.sender.smtp.tlsRejectUnauthorized
-          },
-          profile: {
-            fromName: state.sender.profile.fromName,
-            fromEmail: state.sender.profile.fromEmail,
-            resumeFileName: state.sender.profile.resumeFileName,
-            domain: state.sender.profile.domain,
-            templateKey: state.sender.profile.templateKey,
-            customSubject: state.sender.profile.customSubject,
-            customNote: state.sender.profile.customNote
-          }
-        }
-      : null,
-    templates: publicTemplates(),
-    history: Array.isArray(state.history) ? state.history : []
-  };
 }
 
 function inferRecipientName(email) {
@@ -195,7 +188,115 @@ function buildTransport(smtp) {
   });
 }
 
-function validateSmtp(smtp) {
+function otpTransportConfig() {
+  const host = trimToString(process.env.OTP_SMTP_HOST);
+  const user = trimToString(process.env.OTP_SMTP_USER);
+  const pass = trimToString(process.env.OTP_SMTP_PASS);
+  const from = trimToString(process.env.OTP_FROM_EMAIL);
+  const port = Number(process.env.OTP_SMTP_PORT || 465);
+
+  if (!host || !user || !pass || !from || !Number.isInteger(port)) return null;
+  return {
+    smtp: {
+      host,
+      port,
+      secure: String(process.env.OTP_SMTP_SECURE || "true") !== "false",
+      user,
+      pass,
+      tlsRejectUnauthorized: String(process.env.OTP_SMTP_TLS_REJECT_UNAUTHORIZED || "true") !== "false"
+    },
+    from
+  };
+}
+
+async function sendOtpEmail(email, otp) {
+  const config = otpTransportConfig();
+  if (!config) {
+    if (NODE_ENV !== "production") return { devOtp: otp };
+    throw new Error("OTP mail transport is not configured.");
+  }
+
+  const transport = buildTransport(config.smtp);
+  await transport.sendMail({
+    from: config.from,
+    to: email,
+    subject: "Your login OTP",
+    text: `Your OTP is ${otp}. It expires in 10 minutes.`
+  });
+  return { delivered: true };
+}
+
+function hashOtp(email, otp) {
+  return crypto.createHash("sha256").update(`${email}:${otp}`).digest("hex");
+}
+
+function randomOtp() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function newSessionToken() {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+async function findUserByEmail(email) {
+  const id = await storeGet(`user-email:${email}`);
+  if (!id) return null;
+  return storeGet(`user:${id}`);
+}
+
+async function saveUser(user) {
+  await storeSet(`user:${user.id}`, user);
+  await storeSet(`user-email:${user.email}`, user.id);
+  return user;
+}
+
+function sanitizeUser(user) {
+  return {
+    id: user.id,
+    email: user.email,
+    createdAt: user.createdAt,
+    senderProfile: user.senderProfile
+      ? {
+          fromName: user.senderProfile.fromName,
+          fromEmail: user.senderProfile.fromEmail,
+          resumeFileName: user.senderProfile.resumeFileName,
+          domain: user.senderProfile.domain,
+          templateKey: user.senderProfile.templateKey,
+          customSubject: user.senderProfile.customSubject,
+          customNote: user.senderProfile.customNote
+        }
+      : null,
+    smtpAccount: user.smtpAccount
+      ? {
+          host: user.smtpAccount.host,
+          port: user.smtpAccount.port,
+          secure: user.smtpAccount.secure,
+          user: user.smtpAccount.user,
+          tlsRejectUnauthorized: user.smtpAccount.tlsRejectUnauthorized
+        }
+      : null,
+    history: Array.isArray(user.history) ? user.history : []
+  };
+}
+
+async function getSessionUser(req) {
+  const cookies = parseCookies(req);
+  const token = cookies[SESSION_COOKIE];
+  if (!token) return null;
+  const session = await storeGet(`session:${token}`);
+  if (!session || session.expiresAt < Date.now()) {
+    if (token) await storeDelete(`session:${token}`);
+    return null;
+  }
+  const user = await storeGet(`user:${session.userId}`);
+  if (!user) {
+    await storeDelete(`session:${token}`);
+    return null;
+  }
+  return { user, token };
+}
+
+function validateSmtpPayload(smtp) {
   const host = trimToString(smtp?.host);
   const user = trimToString(smtp?.user);
   const pass = trimToString(smtp?.pass);
@@ -215,7 +316,7 @@ function validateSmtp(smtp) {
   };
 }
 
-function validateSetup(body, file) {
+function validateSenderProfile(body, file) {
   const fromName = trimToString(body?.fromName);
   const fromEmail = trimToString(body?.fromEmail);
   const domain = trimToString(body?.domain);
@@ -224,23 +325,35 @@ function validateSetup(body, file) {
   const customNote = trimToString(body?.customNote);
   if (!fromName || !fromEmail) return { error: "Provide sender name and sender email." };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fromEmail)) return { error: "Provide a valid sender email." };
-  if (!templates[domain]?.[templateKey]) return { error: "Select a valid default profile and template." };
-  if (customSubject.length > MAX_TEXT_LEN || customNote.length > MAX_TEXT_LEN) return { error: "Default subject/note is too long." };
+  if (!templates[domain]?.[templateKey]) return { error: "Select a valid profile and template." };
+  if (customSubject.length > MAX_TEXT_LEN || customNote.length > MAX_TEXT_LEN) return { error: "Subject or note is too long." };
   if (!file) return { error: "Upload a resume file." };
-  return { value: { fromName, fromEmail, domain, templateKey, customSubject, customNote } };
+  return {
+    value: {
+      fromName,
+      fromEmail,
+      domain,
+      templateKey,
+      customSubject,
+      customNote,
+      resumeFileName: file.originalname,
+      resumeMimeType: file.mimetype || "application/octet-stream",
+      resumeBufferBase64: file.buffer.toString("base64")
+    }
+  };
 }
 
-function buildMessages(sender, recipientText) {
+function buildMessages(user, recipientText) {
   const recipients = extractRecipients(recipientText);
-  const template = templates[sender.profile.domain][sender.profile.templateKey];
-  const subject = sender.profile.customSubject || template.subject;
+  const template = templates[user.senderProfile.domain][user.senderProfile.templateKey];
+  const subject = user.senderProfile.customSubject || template.subject;
   const messages = recipients.map((recipient) => {
     const body = template.body({
       greeting: buildGreeting(recipient, recipients.length),
-      name: sender.profile.fromName,
-      resumeText: `Attached resume: ${sender.profile.resumeFileName}`
+      name: user.senderProfile.fromName,
+      resumeText: `Attached resume: ${user.senderProfile.resumeFileName}`
     });
-    const content = sender.profile.customNote ? `${body}\n\nAdditional Note:\n${sender.profile.customNote}` : body;
+    const content = user.senderProfile.customNote ? `${body}\n\nAdditional Note:\n${user.senderProfile.customNote}` : body;
     return { recipient, subject, content };
   });
   return { recipients, subject, messages };
@@ -267,22 +380,138 @@ app.get("/", (_req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-app.get("/health", (_req, res) => {
-  res.json({ ok: true, storage: process.env.KV_REST_API_URL ? "kv" : "memory" });
+app.get("/health", async (_req, res) => {
+  const useKv = Boolean(await kvClient());
+  res.json({ ok: true, storage: useKv ? "kv" : "memory" });
 });
 
-app.get("/api/state", async (_req, res, next) => {
+app.get("/api/bootstrap", async (req, res, next) => {
   try {
-    const state = await readState();
-    res.json(sanitizeState(state));
+    const session = await getSessionUser(req);
+    res.json({
+      authenticated: Boolean(session),
+      user: session ? sanitizeUser(session.user) : null,
+      templates: publicTemplates()
+    });
   } catch (error) {
     next(error);
   }
 });
 
-app.post("/api/setup/verify", async (req, res, next) => {
+app.post("/api/auth/request-otp", async (req, res, next) => {
   try {
-    const validation = validateSmtp(req.body?.smtp);
+    const email = trimToString(req.body?.email).toLowerCase();
+    const mode = trimToString(req.body?.mode).toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: "Provide a valid email address." });
+    }
+    if (!["login", "register"].includes(mode)) {
+      return res.status(400).json({ error: "Invalid auth mode." });
+    }
+
+    const existingUser = await findUserByEmail(email);
+    if (mode === "register" && existingUser) {
+      return res.status(400).json({ error: "An account already exists for this email. Use login." });
+    }
+    if (mode === "login" && !existingUser) {
+      return res.status(400).json({ error: "No account found for this email. Register first." });
+    }
+
+    const otp = randomOtp();
+    await storeSet(`otp:${email}`, {
+      email,
+      mode,
+      otpHash: hashOtp(email, otp),
+      attempts: 0,
+      expiresAt: Date.now() + OTP_TTL_MS
+    });
+
+    const delivery = await sendOtpEmail(email, otp);
+    res.json({
+      ok: true,
+      message: "OTP sent to your email.",
+      devOtp: delivery.devOtp
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/auth/verify-otp", async (req, res, next) => {
+  try {
+    const email = trimToString(req.body?.email).toLowerCase();
+    const otp = trimToString(req.body?.otp);
+    const mode = trimToString(req.body?.mode).toLowerCase();
+    const record = await storeGet(`otp:${email}`);
+    if (!record || record.expiresAt < Date.now()) {
+      await storeDelete(`otp:${email}`);
+      return res.status(400).json({ error: "OTP expired. Request a new one." });
+    }
+    if (record.mode !== mode) {
+      return res.status(400).json({ error: "OTP mode mismatch. Request a new OTP." });
+    }
+    if (record.attempts >= OTP_MAX_ATTEMPTS) {
+      await storeDelete(`otp:${email}`);
+      return res.status(400).json({ error: "Too many OTP attempts. Request a new one." });
+    }
+    if (record.otpHash !== hashOtp(email, otp)) {
+      record.attempts += 1;
+      await storeSet(`otp:${email}`, record);
+      return res.status(400).json({ error: "Incorrect OTP." });
+    }
+
+    await storeDelete(`otp:${email}`);
+
+    let user = await findUserByEmail(email);
+    if (mode === "register") {
+      if (user) {
+        return res.status(400).json({ error: "Account already exists. Use login." });
+      }
+      user = {
+        id: crypto.randomUUID(),
+        email,
+        createdAt: new Date().toISOString(),
+        smtpAccount: null,
+        senderProfile: null,
+        history: []
+      };
+      await saveUser(user);
+    } else if (!user) {
+      return res.status(400).json({ error: "No account found. Register first." });
+    }
+
+    const token = newSessionToken();
+    await storeSet(`session:${token}`, {
+      userId: user.id,
+      email: user.email,
+      expiresAt: Date.now() + SESSION_TTL_MS
+    });
+
+    const secure = NODE_ENV === "production" ? "; Secure" : "";
+    res.setHeader("Set-Cookie", `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax${secure}; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`);
+    res.json({ ok: true, user: sanitizeUser(user) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/auth/logout", async (req, res, next) => {
+  try {
+    const cookies = parseCookies(req);
+    const token = cookies[SESSION_COOKIE];
+    if (token) await storeDelete(`session:${token}`);
+    res.setHeader("Set-Cookie", `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+    res.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/user/setup/verify-smtp", async (req, res, next) => {
+  try {
+    const session = await getSessionUser(req);
+    if (!session) return res.status(401).json({ error: "Login required." });
+    const validation = validateSmtpPayload(req.body?.smtp);
     if (validation.error) return res.status(400).json({ error: validation.error });
     await buildTransport(validation.value).verify();
     res.json({ ok: true });
@@ -291,75 +520,76 @@ app.post("/api/setup/verify", async (req, res, next) => {
   }
 });
 
-app.post("/api/setup", upload.single("resumeFile"), async (req, res, next) => {
+app.post("/api/user/setup", upload.single("resumeFile"), async (req, res, next) => {
   try {
-    const smtpValidation = validateSmtp(req.body);
+    const session = await getSessionUser(req);
+    if (!session) return res.status(401).json({ error: "Login required." });
+
+    const smtpValidation = validateSmtpPayload(req.body);
     if (smtpValidation.error) return res.status(400).json({ error: smtpValidation.error });
-    const setupValidation = validateSetup(req.body, req.file);
-    if (setupValidation.error) return res.status(400).json({ error: setupValidation.error });
+    const profileValidation = validateSenderProfile(req.body, req.file);
+    if (profileValidation.error) return res.status(400).json({ error: profileValidation.error });
 
     await buildTransport(smtpValidation.value).verify();
 
-    const nextState = {
-      configured: true,
-      sender: {
-        smtp: smtpValidation.value,
-        profile: {
-          fromName: setupValidation.value.fromName,
-          fromEmail: setupValidation.value.fromEmail,
-          domain: setupValidation.value.domain,
-          templateKey: setupValidation.value.templateKey,
-          customSubject: setupValidation.value.customSubject,
-          customNote: setupValidation.value.customNote,
-          resumeFileName: req.file.originalname,
-          resumeMimeType: req.file.mimetype || "application/octet-stream",
-          resumeBufferBase64: req.file.buffer.toString("base64")
-        }
-      },
-      history: (await readState()).history || []
+    const updatedUser = {
+      ...session.user,
+      smtpAccount: smtpValidation.value,
+      senderProfile: profileValidation.value
     };
-
-    const state = await writeState(nextState);
-    res.json({ ok: true, state: sanitizeState(state) });
+    await saveUser(updatedUser);
+    res.json({ ok: true, user: sanitizeUser(updatedUser) });
   } catch (error) {
     next(error);
   }
 });
 
-app.post("/api/send/preview", async (req, res, next) => {
+app.post("/api/user/send/preview", async (req, res, next) => {
   try {
-    const state = await readState();
-    if (!state.configured || !state.sender) return res.status(400).json({ error: "Complete one-time setup first." });
+    const session = await getSessionUser(req);
+    if (!session) return res.status(401).json({ error: "Login required." });
+    if (!session.user.smtpAccount || !session.user.senderProfile) {
+      return res.status(400).json({ error: "Complete your sender setup first." });
+    }
+
     const recipientText = trimToString(req.body?.recipientText);
-    const preview = buildMessages(state.sender, recipientText);
-    if (!preview.recipients.length) return res.status(400).json({ error: "Paste at least one valid email address." });
+    const preview = buildMessages(session.user, recipientText);
+    if (!preview.recipients.length) {
+      return res.status(400).json({ error: "Paste at least one valid email address." });
+    }
     res.json({ ok: true, ...preview });
   } catch (error) {
     next(error);
   }
 });
 
-app.post("/api/send", async (req, res, next) => {
+app.post("/api/user/send", async (req, res, next) => {
   try {
-    const state = await readState();
-    if (!state.configured || !state.sender) return res.status(400).json({ error: "Complete one-time setup first." });
-    const recipientText = trimToString(req.body?.recipientText);
-    const built = buildMessages(state.sender, recipientText);
-    if (!built.recipients.length) return res.status(400).json({ error: "Paste at least one valid email address." });
+    const session = await getSessionUser(req);
+    if (!session) return res.status(401).json({ error: "Login required." });
+    if (!session.user.smtpAccount || !session.user.senderProfile) {
+      return res.status(400).json({ error: "Complete your sender setup first." });
+    }
 
-    const transport = buildTransport(state.sender.smtp);
+    const recipientText = trimToString(req.body?.recipientText);
+    const built = buildMessages(session.user, recipientText);
+    if (!built.recipients.length) {
+      return res.status(400).json({ error: "Paste at least one valid email address." });
+    }
+
+    const transport = buildTransport(session.user.smtpAccount);
     const sentMessages = [];
     for (const message of built.messages) {
       const info = await transport.sendMail({
-        from: `${state.sender.profile.fromName} <${state.sender.profile.fromEmail}>`,
+        from: `${session.user.senderProfile.fromName} <${session.user.senderProfile.fromEmail}>`,
         to: message.recipient.email,
         subject: message.subject,
         text: message.content,
         attachments: [
           {
-            filename: state.sender.profile.resumeFileName,
-            content: Buffer.from(state.sender.profile.resumeBufferBase64, "base64"),
-            contentType: state.sender.profile.resumeMimeType
+            filename: session.user.senderProfile.resumeFileName,
+            content: Buffer.from(session.user.senderProfile.resumeBufferBase64, "base64"),
+            contentType: session.user.senderProfile.resumeMimeType
           }
         ]
       });
@@ -371,22 +601,22 @@ app.post("/api/send", async (req, res, next) => {
       });
     }
 
-    const nextState = {
-      ...state,
+    const updatedUser = {
+      ...session.user,
       history: [
         {
-          id: `${Date.now()}`,
+          id: crypto.randomUUID(),
           createdAt: new Date().toISOString(),
           subject: built.subject,
           recipients: built.recipients.map((recipient) => recipient.email),
           sentMessages
         },
-        ...(state.history || [])
+        ...(session.user.history || [])
       ].slice(0, MAX_HISTORY_ITEMS)
     };
 
-    const savedState = await writeState(nextState);
-    res.json({ ok: true, sent: sentMessages.length, history: savedState.history });
+    await saveUser(updatedUser);
+    res.json({ ok: true, sent: sentMessages.length, user: sanitizeUser(updatedUser) });
   } catch (error) {
     next(error);
   }
