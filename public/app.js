@@ -119,19 +119,6 @@ function fillSetupForm() {
   }
 
   if (profile) {
-    setupForm.elements.fromName.value = profile.fromName || "";
-    setupForm.elements.fromEmail.value = profile.fromEmail || "";
-    setupForm.elements.phone.value = profile.phone || "";
-    setupForm.elements.location.value = profile.location || "";
-    setupForm.elements.currentRole.value = profile.currentRole || "";
-    setupForm.elements.currentCompany.value = profile.currentCompany || "";
-    setupForm.elements.yearsExperience.value = profile.yearsExperience || "";
-    setupForm.elements.primarySkills.value = profile.primarySkills || "";
-    setupForm.elements.keyProjects.value = profile.keyProjects || "";
-    setupForm.elements.education.value = profile.education || "";
-    setupForm.elements.portfolioUrl.value = profile.portfolioUrl || "";
-    setupForm.elements.linkedinUrl.value = profile.linkedinUrl || "";
-    setupForm.elements.githubUrl.value = profile.githubUrl || "";
     setupForm.elements.domain.value = profile.domain || "";
     renderTemplateOptions();
     setupForm.elements.templateKey.value = profile.templateKey || "";
@@ -337,9 +324,10 @@ setupForm.addEventListener("submit", async (event) => {
   setStatus(setupStatus, "Saving your setup...", "info");
 
   try {
+    const formData = new FormData(setupForm);
     const data = await requestJson("/api/user/setup", {
       method: "POST",
-      body: new FormData(setupForm)
+      body: formData
     });
     state.user = data.user;
     renderAccountSummary();

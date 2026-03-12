@@ -30,28 +30,6 @@ function compactLines(lines) {
   return lines.filter(Boolean).join("\n");
 }
 
-function buildProfileSummary(profile) {
-  const lines = [];
-  if (profile.currentRole || profile.currentCompany) {
-    lines.push([profile.currentRole, profile.currentCompany ? `at ${profile.currentCompany}` : ""].filter(Boolean).join(" "));
-  }
-  if (profile.yearsExperience) lines.push(`${profile.yearsExperience} years of experience`);
-  if (profile.location) lines.push(`Based in ${profile.location}`);
-  if (profile.primarySkills) lines.push(`Skills: ${profile.primarySkills}`);
-  if (profile.keyProjects) lines.push(`Projects: ${profile.keyProjects}`);
-  if (profile.education) lines.push(`Education: ${profile.education}`);
-  return lines.join("\n");
-}
-
-function buildProfileLinks(profile) {
-  const links = [];
-  if (profile.portfolioUrl) links.push(`Portfolio: ${profile.portfolioUrl}`);
-  if (profile.githubUrl) links.push(`GitHub: ${profile.githubUrl}`);
-  if (profile.linkedinUrl) links.push(`LinkedIn: ${profile.linkedinUrl}`);
-  if (profile.phone) links.push(`Phone: ${profile.phone}`);
-  return links.join("\n");
-}
-
 function buildRoleTemplate({ label, subject, intro, highlights, closing }) {
   return {
     label,
@@ -377,19 +355,6 @@ function sanitizeUser(user) {
     createdAt: user.createdAt,
     senderProfile: user.senderProfile
       ? {
-          fromName: user.senderProfile.fromName,
-          fromEmail: user.senderProfile.fromEmail,
-          phone: user.senderProfile.phone,
-          location: user.senderProfile.location,
-          currentRole: user.senderProfile.currentRole,
-          currentCompany: user.senderProfile.currentCompany,
-          yearsExperience: user.senderProfile.yearsExperience,
-          primarySkills: user.senderProfile.primarySkills,
-          keyProjects: user.senderProfile.keyProjects,
-          education: user.senderProfile.education,
-          portfolioUrl: user.senderProfile.portfolioUrl,
-          linkedinUrl: user.senderProfile.linkedinUrl,
-          githubUrl: user.senderProfile.githubUrl,
           resumeFileName: user.senderProfile.resumeFileName,
           domain: user.senderProfile.domain,
           templateKey: user.senderProfile.templateKey,
@@ -448,46 +413,15 @@ function validateSmtpPayload(smtp) {
 }
 
 function validateSenderProfile(body, file) {
-  const fromName = trimToString(body?.fromName);
-  const fromEmail = trimToString(body?.fromEmail);
-  const phone = trimToString(body?.phone);
-  const location = trimToString(body?.location);
-  const currentRole = trimToString(body?.currentRole);
-  const currentCompany = trimToString(body?.currentCompany);
-  const yearsExperience = trimToString(body?.yearsExperience);
-  const primarySkills = trimToString(body?.primarySkills);
-  const keyProjects = trimToString(body?.keyProjects);
-  const education = trimToString(body?.education);
-  const portfolioUrl = trimToString(body?.portfolioUrl);
-  const linkedinUrl = trimToString(body?.linkedinUrl);
-  const githubUrl = trimToString(body?.githubUrl);
   const domain = trimToString(body?.domain);
   const templateKey = trimToString(body?.templateKey);
   const customSubject = trimToString(body?.customSubject);
   const customNote = trimToString(body?.customNote);
-  if (!fromName || !fromEmail) return { error: "Provide sender name and sender email." };
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fromEmail)) return { error: "Provide a valid sender email." };
   if (!templates[domain]?.[templateKey]) return { error: "Select a valid profile and template." };
   if (customSubject.length > MAX_TEXT_LEN || customNote.length > MAX_TEXT_LEN) return { error: "Subject or note is too long." };
-  if ([phone, location, currentRole, currentCompany, yearsExperience, primarySkills, keyProjects, education, portfolioUrl, linkedinUrl, githubUrl].some((value) => value.length > MAX_TEXT_LEN)) {
-    return { error: "One or more profile fields are too long." };
-  }
   if (!file) return { error: "Upload a resume file." };
   return {
     value: {
-      fromName,
-      fromEmail,
-      phone,
-      location,
-      currentRole,
-      currentCompany,
-      yearsExperience,
-      primarySkills,
-      keyProjects,
-      education,
-      portfolioUrl,
-      linkedinUrl,
-      githubUrl,
       domain,
       templateKey,
       customSubject,
@@ -503,13 +437,12 @@ function buildMessages(user, recipientText) {
   const recipients = extractRecipients(recipientText);
   const template = templates[user.senderProfile.domain][user.senderProfile.templateKey];
   const subject = user.senderProfile.customSubject || template.subject;
+  const senderName = inferRecipientName(user.email) || user.email.split("@")[0] || user.email;
   const messages = recipients.map((recipient) => {
     const body = template.body({
       greeting: buildGreeting(recipient, recipients.length),
-      name: user.senderProfile.fromName,
-      resumeText: `Attached resume: ${user.senderProfile.resumeFileName}`,
-      profileSummary: buildProfileSummary(user.senderProfile),
-      profileLinks: buildProfileLinks(user.senderProfile)
+      name: senderName,
+      resumeText: `Attached resume: ${user.senderProfile.resumeFileName}`
     });
     const content = user.senderProfile.customNote ? `${body}\n\nAdditional Note:\n${user.senderProfile.customNote}` : body;
     return { recipient, subject, content };
@@ -739,7 +672,7 @@ app.post("/api/user/send", async (req, res, next) => {
     const sentMessages = [];
     for (const message of built.messages) {
       const info = await transport.sendMail({
-        from: `${session.user.senderProfile.fromName} <${session.user.senderProfile.fromEmail}>`,
+        from: session.user.smtpAccount.user,
         to: message.recipient.email,
         subject: message.subject,
         text: message.content,
