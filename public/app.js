@@ -1,24 +1,12 @@
 const tabs = Array.from(document.querySelectorAll(".tab[data-tab]"));
 const tabPanels = Array.from(document.querySelectorAll("[data-tab-panel]"));
 
-const authPanel = document.getElementById("auth-panel");
-const portalShell = document.getElementById("portal-shell");
 const accountSummary = document.getElementById("account-summary");
-
-const registerRequestForm = document.getElementById("register-request-form");
-const registerVerifyForm = document.getElementById("register-verify-form");
-const loginRequestForm = document.getElementById("login-request-form");
-const loginVerifyForm = document.getElementById("login-verify-form");
 const setupForm = document.getElementById("setup-form");
 const quickSendForm = document.getElementById("quick-send-form");
 
-const registerRequestStatus = document.getElementById("register-request-status");
-const registerVerifyStatus = document.getElementById("register-verify-status");
-const loginRequestStatus = document.getElementById("login-request-status");
-const loginVerifyStatus = document.getElementById("login-verify-status");
 const setupStatus = document.getElementById("setup-status");
 const sendStatus = document.getElementById("send-status");
-const logoutButton = document.getElementById("logout-button");
 
 const preview = document.getElementById("email-preview");
 const detectedRecipients = document.getElementById("detected-recipients");
@@ -27,7 +15,6 @@ const historyList = document.getElementById("history-list");
 const dashboardEmpty = document.getElementById("dashboard-empty");
 
 const state = {
-  authenticated: false,
   user: null,
   templates: {}
 };
@@ -63,27 +50,19 @@ async function requestJson(url, options = {}) {
 }
 
 function renderAccountSummary() {
-  if (!state.authenticated || !state.user) {
-    accountSummary.innerHTML = `
-      <h2>Register Or Login</h2>
-      <p class="small">Create your account or sign in with email OTP.</p>
-    `;
-    return;
-  }
+  const setupDone = Boolean(state.user?.smtpAccount && state.user?.senderProfile);
+  const smtpUser = state.user?.smtpAccount?.user || "Not configured";
+  const template = state.user?.senderProfile
+    ? `${state.user.senderProfile.domain} / ${state.user.senderProfile.templateKey}`
+    : "Not configured";
 
-  const setupDone = Boolean(state.user.smtpAccount && state.user.senderProfile);
   accountSummary.innerHTML = `
-    <h2>${escapeHtml(state.user.email)}</h2>
-    <p>${setupDone ? "Your private setup is ready." : "Finish your private sender setup."}</p>
-    <p>${state.user.senderProfile ? `Template: ${escapeHtml(state.user.senderProfile.domain)} / ${escapeHtml(state.user.senderProfile.templateKey)}` : "No template selected yet."}</p>
-    <p>${state.user.history?.length || 0} mail batch${state.user.history?.length === 1 ? "" : "es"} in your dashboard</p>
+    <h2>${setupDone ? "Setup Ready" : "Setup Required"}</h2>
+    <p>${setupDone ? "SMTP, resume, and template are configured." : "Complete setup before sending mails."}</p>
+    <p><strong>SMTP:</strong> ${escapeHtml(smtpUser)}</p>
+    <p><strong>Template:</strong> ${escapeHtml(template)}</p>
+    <p>${state.user?.history?.length || 0} mail batch${state.user?.history?.length === 1 ? "" : "es"} in your dashboard</p>
   `;
-}
-
-function renderAuthShell() {
-  authPanel.classList.toggle("hidden", state.authenticated);
-  portalShell.classList.toggle("hidden", !state.authenticated);
-  renderAccountSummary();
 }
 
 function renderTemplateOptions() {
@@ -108,7 +87,6 @@ function renderTemplateOptions() {
 function fillSetupForm() {
   const smtp = state.user?.smtpAccount;
   const profile = state.user?.senderProfile;
-  if (!smtp && !profile) return;
 
   if (smtp) {
     setupForm.elements.host.value = smtp.host || "smtp.gmail.com";
@@ -122,8 +100,6 @@ function fillSetupForm() {
     setupForm.elements.domain.value = profile.domain || "";
     renderTemplateOptions();
     setupForm.elements.templateKey.value = profile.templateKey || "";
-    setupForm.elements.customSubject.value = profile.customSubject || "";
-    setupForm.elements.customNote.value = profile.customNote || "";
     setStatus(setupStatus, `Saved resume: ${profile.resumeFileName}`, "success");
   }
 }
@@ -137,8 +113,7 @@ function renderDetectedRecipients(recipients) {
   detectedRecipients.className = "recipient-list";
   detectedRecipients.innerHTML = recipients
     .map((recipient) => {
-      const label = recipient.name ? `${escapeHtml(recipient.name)} &lt;${escapeHtml(recipient.email)}&gt;` : escapeHtml(recipient.email);
-      return `<div class="recipient-chip">${label}</div>`;
+      return `<div class="recipient-chip">${escapeHtml(recipient.email)}</div>`;
     })
     .join("");
 }
@@ -153,14 +128,11 @@ function renderMailPreviews(messages) {
   mailPreviews.className = "mail-preview-list";
   mailPreviews.innerHTML = messages
     .map((message) => {
-      const label = message.recipient.name
-        ? `${escapeHtml(message.recipient.name)} &lt;${escapeHtml(message.recipient.email)}&gt;`
-        : escapeHtml(message.recipient.email);
       return `
         <article class="mail-preview-card">
           <div class="history-head">
             <div>
-              <h3>${label}</h3>
+              <h3>${escapeHtml(message.recipient.email)}</h3>
               <p>${escapeHtml(message.subject)}</p>
             </div>
           </div>
@@ -181,12 +153,9 @@ function renderHistory() {
     card.className = "history-card";
     const sentMessages = (entry.sentMessages || [])
       .map((message) => {
-        const label = message.recipientName
-          ? `${escapeHtml(message.recipientName)} &lt;${escapeHtml(message.recipient)}&gt;`
-          : escapeHtml(message.recipient);
         return `
           <div class="history-message">
-            <p><strong>To:</strong> ${label}</p>
+            <p><strong>To:</strong> ${escapeHtml(message.recipient)}</p>
             <pre>${escapeHtml(message.content)}</pre>
           </div>
         `;
@@ -209,29 +178,16 @@ function renderHistory() {
 
 async function refreshBootstrap() {
   const data = await requestJson("/api/bootstrap");
-  state.authenticated = data.authenticated;
   state.user = data.user;
   state.templates = data.templates || {};
-  renderAuthShell();
-  if (state.authenticated) {
-    fillSetupForm();
-    renderHistory();
-  } else {
-    preview.textContent = "Paste emails to preview the generated mails.";
-    renderDetectedRecipients([]);
-    renderMailPreviews(null);
-  }
+  renderAccountSummary();
+  fillSetupForm();
+  renderHistory();
 }
 
 async function refreshPreview() {
-  if (!state.authenticated) {
-    preview.textContent = "Login first.";
-    renderDetectedRecipients([]);
-    renderMailPreviews(null);
-    return;
-  }
   if (!state.user?.smtpAccount || !state.user?.senderProfile) {
-    preview.textContent = "Complete your sender setup first.";
+    preview.textContent = "Complete setup first.";
     renderDetectedRecipients([]);
     renderMailPreviews(null);
     return;
@@ -261,78 +217,21 @@ async function refreshPreview() {
   }
 }
 
-async function handleOtpRequest(form, statusEl, mode, verifyForm) {
-  setStatus(statusEl, `Sending ${mode} OTP...`, "info");
-  try {
-    const email = form.elements.email.value;
-    const data = await requestJson("/api/auth/request-otp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, mode })
-    });
-    verifyForm.elements.email.value = email;
-    const suffix = data.devOtp ? ` Dev OTP: ${data.devOtp}` : "";
-    setStatus(statusEl, `OTP sent.${suffix}`, "success");
-  } catch (error) {
-    setStatus(statusEl, error.message, "error");
-  }
-}
-
-async function handleOtpVerify(form, statusEl, mode, successText) {
-  setStatus(statusEl, `${successText}...`, "info");
-  try {
-    await requestJson("/api/auth/verify-otp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: form.elements.email.value,
-        otp: form.elements.otp.value,
-        mode
-      })
-    });
-    setStatus(statusEl, mode === "register" ? "Account created successfully." : "Login successful.", "success");
-    await refreshBootstrap();
-  } catch (error) {
-    setStatus(statusEl, error.message, "error");
-  }
-}
-
-registerRequestForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  await handleOtpRequest(registerRequestForm, registerRequestStatus, "register", registerVerifyForm);
-});
-
-loginRequestForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  await handleOtpRequest(loginRequestForm, loginRequestStatus, "login", loginVerifyForm);
-});
-
-registerVerifyForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  await handleOtpVerify(registerVerifyForm, registerVerifyStatus, "register", "Creating account");
-});
-
-loginVerifyForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  await handleOtpVerify(loginVerifyForm, loginVerifyStatus, "login", "Logging in");
-});
-
 setupForm.elements.domain.addEventListener("change", renderTemplateOptions);
 
 setupForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  setStatus(setupStatus, "Saving your setup...", "info");
+  setStatus(setupStatus, "Saving setup...", "info");
 
   try {
-    const formData = new FormData(setupForm);
     const data = await requestJson("/api/user/setup", {
       method: "POST",
-      body: formData
+      body: new FormData(setupForm)
     });
     state.user = data.user;
     renderAccountSummary();
     renderHistory();
-    setStatus(setupStatus, "Your setup is saved.", "success");
+    setStatus(setupStatus, "Setup saved.", "success");
     setActiveTab("send");
     await refreshPreview();
   } catch (error) {
@@ -362,13 +261,10 @@ quickSendForm.addEventListener("submit", async (event) => {
   }
 });
 
-logoutButton.addEventListener("click", async () => {
-  await requestJson("/api/auth/logout", { method: "POST" }).catch(() => null);
-  state.authenticated = false;
-  state.user = null;
-  renderAuthShell();
-});
-
-refreshBootstrap().catch((error) => {
-  accountSummary.textContent = error.message || "Unable to load portal.";
-});
+refreshBootstrap()
+  .then(() => {
+    renderTemplateOptions();
+  })
+  .catch((error) => {
+    accountSummary.textContent = error.message || "Unable to load portal.";
+  });

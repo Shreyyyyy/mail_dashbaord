@@ -16,10 +16,10 @@
     <div class="page">
       <header class="hero">
         <div class="hero-content">
-          <p class="badge">Multi-User OTP Portal</p>
+          <p class="badge">Single-User SMTP Tool</p>
           <h1>Hiring Mail Portal</h1>
           <p class="subhead">
-            Each user logs in with OTP on their own email, sets up their own SMTP and resume, then sends hiring mails from their own dashboard.
+            Save one SMTP setup, choose a default resume and template, send personalized mails, and keep the send history in one dashboard.
           </p>
         </div>
         <div class="hero-panel">
@@ -28,80 +28,11 @@
       </header>
 
       <main class="app">
-        <section class="panel" id="auth-panel">
-          <div class="section-head">
-            <div>
-              <h2>Authentication</h2>
-              <p class="panel-lead">Create an account with your email or log in to an existing one. Both flows use OTP verification.</p>
-            </div>
-          </div>
-          <div class="auth-layout">
-            <section class="auth-card">
-              <h3>Register</h3>
-              <p class="panel-lead">New users create their own account with email OTP.</p>
-              <form id="register-request-form" class="form-grid">
-                <label class="full">
-                  Email Address
-                  <input type="email" name="email" placeholder="you@example.com" required />
-                </label>
-                <div class="full inline-actions">
-                  <button type="submit" class="primary">Send Registration OTP</button>
-                  <span id="register-request-status" class="status"></span>
-                </div>
-              </form>
-              <form id="register-verify-form" class="form-grid">
-                <label>
-                  Email Address
-                  <input type="email" name="email" placeholder="you@example.com" required />
-                </label>
-                <label>
-                  OTP
-                  <input type="text" name="otp" placeholder="6 digit OTP" required />
-                </label>
-                <div class="full inline-actions">
-                  <button type="submit" class="primary">Create Account</button>
-                  <span id="register-verify-status" class="status"></span>
-                </div>
-              </form>
-            </section>
-
-            <section class="auth-card">
-              <h3>Login</h3>
-              <p class="panel-lead">Existing users log in with an OTP sent to their registered email.</p>
-              <form id="login-request-form" class="form-grid">
-                <label class="full">
-                  Email Address
-                  <input type="email" name="email" placeholder="you@example.com" required />
-                </label>
-                <div class="full inline-actions">
-                  <button type="submit" class="primary">Send Login OTP</button>
-                  <span id="login-request-status" class="status"></span>
-                </div>
-              </form>
-              <form id="login-verify-form" class="form-grid">
-                <label>
-                  Email Address
-                  <input type="email" name="email" placeholder="you@example.com" required />
-                </label>
-                <label>
-                  OTP
-                  <input type="text" name="otp" placeholder="6 digit OTP" required />
-                </label>
-                <div class="full inline-actions">
-                  <button type="submit" class="primary">Login</button>
-                  <span id="login-verify-status" class="status"></span>
-                </div>
-              </form>
-            </section>
-          </div>
-        </section>
-
-        <section id="portal-shell" class="hidden">
+        <section id="portal-shell">
           <nav class="tabbar">
             <button class="tab active" data-tab="send">Send</button>
             <button class="tab" data-tab="setup">My Setup</button>
             <button class="tab" data-tab="dashboard">Dashboard</button>
-            <button class="tab danger-tab" id="logout-button" type="button">Logout</button>
           </nav>
 
           <section class="panel" data-tab-panel="send">
@@ -188,14 +119,6 @@
                 <select name="templateKey" required>
                   <option value="">Select template</option>
                 </select>
-              </label>
-              <label class="full">
-                Default Subject Override (optional)
-                <input type="text" name="customSubject" placeholder="Leave blank to use template subject" />
-              </label>
-              <label class="full">
-                Default Additional Note (optional)
-                <textarea name="customNote" rows="4" placeholder="Optional note appended to every mail"></textarea>
               </label>
               <div class="full inline-actions">
                 <button type="submit" class="primary">Save My Setup</button>
