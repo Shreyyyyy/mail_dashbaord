@@ -52,22 +52,25 @@ async function requestJson(url, options = {}) {
 function renderAccountSummary() {
   const setupDone = Boolean(state.user?.smtpAccount && state.user?.senderProfile);
   const smtpUser = state.user?.smtpAccount?.user || "Not configured";
-  const template = state.user?.senderProfile
-    ? `${state.user.senderProfile.domain} / ${state.user.senderProfile.templateKey}`
-    : "Not configured";
+  const resume = state.user?.senderProfile?.resumeFileName || "Not configured";
 
   accountSummary.innerHTML = `
     <h2>${setupDone ? "Setup Ready" : "Setup Required"}</h2>
-    <p>${setupDone ? "SMTP, resume, and template are configured." : "Complete setup before sending mails."}</p>
+    <p>${setupDone ? "SMTP and default resume are configured." : "Complete setup before sending mails."}</p>
     <p><strong>SMTP:</strong> ${escapeHtml(smtpUser)}</p>
-    <p><strong>Template:</strong> ${escapeHtml(template)}</p>
+    <p><strong>Resume:</strong> ${escapeHtml(resume)}</p>
     <p>${state.user?.history?.length || 0} mail batch${state.user?.history?.length === 1 ? "" : "es"} in your dashboard</p>
   `;
 }
 
-function renderTemplateOptions() {
-  const domain = setupForm.elements.domain.value;
-  const templateSelect = setupForm.elements.templateKey;
+function renderTemplateOptions(form) {
+  const availableDomains = Object.keys(state.templates || {});
+  if (!form.elements.domain.value && availableDomains[0]) {
+    form.elements.domain.value = availableDomains[0];
+  }
+
+  const domain = form.elements.domain.value;
+  const templateSelect = form.elements.templateKey;
   const options = state.templates[domain] || [];
   const previous = templateSelect.value;
   templateSelect.innerHTML = '<option value="">Select template</option>';
@@ -81,12 +84,16 @@ function renderTemplateOptions() {
 
   if (options.some((option) => option.key === previous)) {
     templateSelect.value = previous;
+    return;
+  }
+
+  if (options[0]) {
+    templateSelect.value = options[0].key;
   }
 }
 
 function fillSetupForm() {
   const smtp = state.user?.smtpAccount;
-  const profile = state.user?.senderProfile;
 
   if (smtp) {
     setupForm.elements.host.value = smtp.host || "smtp.gmail.com";
@@ -96,10 +103,10 @@ function fillSetupForm() {
     setupForm.elements.tlsRejectUnauthorized.checked = smtp.tlsRejectUnauthorized !== false;
   }
 
+  renderTemplateOptions(quickSendForm);
+
+  const profile = state.user?.senderProfile;
   if (profile) {
-    setupForm.elements.domain.value = profile.domain || "";
-    renderTemplateOptions();
-    setupForm.elements.templateKey.value = profile.templateKey || "";
     setStatus(setupStatus, `Saved resume: ${profile.resumeFileName}`, "success");
   }
 }
@@ -186,7 +193,7 @@ async function refreshBootstrap() {
 }
 
 async function refreshPreview() {
-  if (!state.user?.smtpAccount || !state.user?.senderProfile) {
+  if (!state.user?.smtpAccount) {
     preview.textContent = "Complete setup first.";
     renderDetectedRecipients([]);
     renderMailPreviews(null);
@@ -202,10 +209,16 @@ async function refreshPreview() {
   }
 
   try {
+    const formData = new FormData();
+    formData.append("recipientText", recipientText);
+    formData.append("domain", quickSendForm.elements.domain.value);
+    formData.append("templateKey", quickSendForm.elements.templateKey.value);
+    const resumeFile = quickSendForm.elements.resumeFile.files[0];
+    if (resumeFile) formData.append("resumeFile", resumeFile);
+
     const data = await requestJson("/api/user/send/preview", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ recipientText })
+      body: formData
     });
     renderDetectedRecipients(data.recipients);
     preview.textContent = `Subject: ${data.subject}\n\n${data.messages[0]?.content || ""}`;
@@ -216,8 +229,6 @@ async function refreshPreview() {
     renderMailPreviews(null);
   }
 }
-
-setupForm.elements.domain.addEventListener("change", renderTemplateOptions);
 
 setupForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -239,6 +250,13 @@ setupForm.addEventListener("submit", async (event) => {
   }
 });
 
+quickSendForm.elements.domain.addEventListener("change", async () => {
+  renderTemplateOptions(quickSendForm);
+  await refreshPreview();
+});
+
+quickSendForm.elements.templateKey.addEventListener("change", refreshPreview);
+quickSendForm.elements.resumeFile.addEventListener("change", refreshPreview);
 quickSendForm.elements.recipientText.addEventListener("input", refreshPreview);
 
 quickSendForm.addEventListener("submit", async (event) => {
@@ -246,10 +264,16 @@ quickSendForm.addEventListener("submit", async (event) => {
   setStatus(sendStatus, "Sending emails...", "info");
 
   try {
+    const formData = new FormData();
+    formData.append("recipientText", quickSendForm.elements.recipientText.value);
+    formData.append("domain", quickSendForm.elements.domain.value);
+    formData.append("templateKey", quickSendForm.elements.templateKey.value);
+    const resumeFile = quickSendForm.elements.resumeFile.files[0];
+    if (resumeFile) formData.append("resumeFile", resumeFile);
+
     const data = await requestJson("/api/user/send", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ recipientText: quickSendForm.elements.recipientText.value })
+      body: formData
     });
     state.user = data.user;
     renderAccountSummary();
@@ -263,7 +287,7 @@ quickSendForm.addEventListener("submit", async (event) => {
 
 refreshBootstrap()
   .then(() => {
-    renderTemplateOptions();
+    renderTemplateOptions(quickSendForm);
   })
   .catch((error) => {
     accountSummary.textContent = error.message || "Unable to load portal.";

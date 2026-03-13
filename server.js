@@ -32,16 +32,22 @@ function buildRoleTemplate({ label, subject, intro, highlights, closing }) {
       compactLines([
         greeting,
         "",
+        "I hope you are doing well.",
+        "",
+        "I am reaching out to express my interest in relevant opportunities with your team.",
+        "",
         intro,
         "",
-        "Highlights:",
+        "Based on the role, I believe I can contribute in the following areas:",
         ...highlights.map((item) => `- ${item}`),
-        "",
-        `Resume:\n${resumeText}`,
         "",
         closing,
         "",
-        "Best regards"
+        `Resume attached for review.\n${resumeText}`,
+        "",
+        "Thank you for your time and consideration.",
+        "",
+        "Best regards,"
       ])
   };
 }
@@ -49,121 +55,132 @@ function buildRoleTemplate({ label, subject, intro, highlights, closing }) {
 const templates = {
   marketing: {
     fresher_campaign: {
-      label: "Campaign starter",
-      subject: "Application for Marketing Associate",
+      label: "Default outreach",
+      subject: "Application for Marketing Opportunities",
       body: ({ greeting, resumeText }) =>
-        `${greeting}\n\nThis email is to express interest in entry-level marketing opportunities. The focus is on clear messaging, campaign execution, audience research, and consistent support for fast-moving teams.\n\nHighlights:\n- Strong interest in content, brand communication, and audience research\n- Comfortable with coordination, writing, and structured execution\n- Ready to contribute with energy and consistency from day one\n\nResume:\n${resumeText}\n\nThank you for your time. Consider this profile for suitable marketing openings.\n\nBest regards`
+        `${greeting}\n\nI hope you are doing well.\n\nI am reaching out to express my interest in marketing opportunities with your team. I am particularly interested in roles where I can support campaign execution, communication, content coordination, and audience-focused work.\n\nBased on the role, I believe I can contribute in the following areas:\n- Strong interest in content, brand communication, and audience research\n- Comfortable with coordination, writing, and structured execution\n- Ready to contribute with consistency, ownership, and a strong learning mindset\n\nIf there is a relevant opening, I would appreciate the opportunity to be considered.\n\nResume attached for review.\n${resumeText}\n\nThank you for your time and consideration.\n\nBest regards,`
     },
     fresher_growth: {
       label: "Growth-focused",
       subject: "Fresher Marketing Application for Growth-Focused Roles",
       body: ({ greeting, resumeText }) =>
-        `${greeting}\n\nThis email is to express interest in entry-level marketing roles with a growth and performance focus. The profile is aligned with experimentation, digital channels, and measurable business impact.\n\nHighlights:\n- Interest in social media, campaign analysis, and lead generation\n- Analytical mindset with willingness to test, learn, and improve quickly\n- Strong ownership and follow-through on execution tasks\n\nResume:\n${resumeText}\n\nThis profile can be considered for entry-level marketing opportunities.\n\nBest regards`
+        `${greeting}\n\nI hope you are doing well.\n\nI am writing to express my interest in entry-level marketing roles with a growth and performance focus. I am especially interested in opportunities involving experimentation, digital channels, and measurable business outcomes.\n\nBased on the role, I believe I can contribute in the following areas:\n- Interest in social media, campaign analysis, and lead generation\n- Analytical mindset with willingness to test, learn, and improve quickly\n- Strong ownership and follow-through on execution tasks\n\nIf there is a suitable opportunity, I would be glad to be considered.\n\nResume attached for review.\n${resumeText}\n\nThank you for your time and consideration.\n\nBest regards,`
     },
     fresher_brand: {
       label: "Brand and content",
       subject: "Entry-Level Marketing Application",
       body: ({ greeting, resumeText }) =>
-        `${greeting}\n\nThis email is to express interest in entry-level marketing roles focused on brand building, content planning, and customer communication.\n\nHighlights:\n- Strong written communication and creative problem-solving skills\n- Interest in campaign planning, storytelling, and cross-team collaboration\n- Adaptable, proactive, and committed to continuous learning\n\nResume:\n${resumeText}\n\nPlease consider this profile for relevant fresher marketing roles.\n\nBest regards`
+        `${greeting}\n\nI hope you are doing well.\n\nI am writing to express my interest in entry-level marketing roles focused on brand building, content planning, and customer communication.\n\nBased on the role, I believe I can contribute in the following areas:\n- Strong written communication and creative problem-solving skills\n- Interest in campaign planning, storytelling, and cross-team collaboration\n- Adaptable, proactive, and committed to continuous learning\n\nIf there is a relevant opening, I would appreciate the opportunity to be considered.\n\nResume attached for review.\n${resumeText}\n\nThank you for your time and consideration.\n\nBest regards,`
     }
   },
   hr: {
     fresher_people_ops: {
-      label: "People operations",
-      subject: "Application for HR Associate Role",
+      label: "Default outreach",
+      subject: "Application for HR Opportunities",
       body: ({ greeting, resumeText }) =>
-        `${greeting}\n\nThis email is to express interest in entry-level HR opportunities, especially in people operations, employee support, and workplace coordination.\n\nHighlights:\n- Strong communication, coordination, and organizational skills\n- Interest in onboarding, employee engagement, and HR processes\n- Reliable, empathetic, and eager to learn from structured HR teams\n\nResume:\n${resumeText}\n\nThank you for your time. Consider this profile for suitable HR openings.\n\nBest regards`
+        `${greeting}\n\nI hope you are doing well.\n\nI am writing to express my interest in HR opportunities with your team. I am especially interested in roles involving people operations, employee support, coordination, and well-run HR processes.\n\nBased on the role, I believe I can contribute in the following areas:\n- Strong communication, coordination, and organizational skills\n- Interest in onboarding, employee engagement, and HR processes\n- Reliable, empathetic, and eager to learn in a structured team environment\n\nIf there is a suitable opening, I would appreciate the opportunity to be considered.\n\nResume attached for review.\n${resumeText}\n\nThank you for your time and consideration.\n\nBest regards,`
     },
     fresher_talent: {
       label: "Talent acquisition",
       subject: "Fresher Application for Talent Acquisition / HR Roles",
       body: ({ greeting, resumeText }) =>
-        `${greeting}\n\nThis email is to express interest in HR roles, especially in recruitment and talent coordination. The profile is suited to candidate communication and hiring operations support.\n\nHighlights:\n- Interest in recruitment workflow, screening coordination, and candidate communication\n- Strong interpersonal skills with an organized and process-oriented approach\n- Quick learner ready to support hiring teams effectively\n\nResume:\n${resumeText}\n\nPlease consider this profile for fresher HR or talent acquisition openings.\n\nBest regards`
+        `${greeting}\n\nI hope you are doing well.\n\nI am writing to express my interest in HR roles, especially in recruitment and talent coordination. I am particularly interested in supporting candidate communication and hiring operations.\n\nBased on the role, I believe I can contribute in the following areas:\n- Interest in recruitment workflow, screening coordination, and candidate communication\n- Strong interpersonal skills with an organized and process-oriented approach\n- Quick learner ready to support hiring teams effectively\n\nIf there is a relevant opportunity, I would appreciate the chance to be considered.\n\nResume attached for review.\n${resumeText}\n\nThank you for your time and consideration.\n\nBest regards,`
     },
     fresher_generalist: {
       label: "HR generalist",
       subject: "Entry-Level HR Application",
       body: ({ greeting, resumeText }) =>
-        `${greeting}\n\nThis email is to express interest in entry-level HR opportunities with a focus on employee support, coordination, and strong internal processes.\n\nHighlights:\n- Good communication, documentation, and stakeholder coordination skills\n- Interest in policy support, onboarding, and employee engagement activities\n- Dependable and eager to grow within an HR generalist role\n\nResume:\n${resumeText}\n\nPlease consider this profile for suitable entry-level HR opportunities.\n\nBest regards`
+        `${greeting}\n\nI hope you are doing well.\n\nI am writing to express my interest in entry-level HR opportunities with a focus on employee support, coordination, and strong internal processes.\n\nBased on the role, I believe I can contribute in the following areas:\n- Good communication, documentation, and stakeholder coordination skills\n- Interest in policy support, onboarding, and employee engagement activities\n- Dependable and eager to grow within an HR generalist role\n\nIf there is a suitable opening, I would be glad to be considered.\n\nResume attached for review.\n${resumeText}\n\nThank you for your time and consideration.\n\nBest regards,`
     }
   },
   engineering: {
+    engineering_general: buildRoleTemplate({
+      label: "Default outreach",
+      subject: "Application for Engineering Opportunities",
+      intro: "I am reaching out to express my interest in software engineering opportunities where I can contribute through solid implementation, reliable execution, and effective collaboration.",
+      highlights: [
+        "Comfortable working across application logic, debugging, APIs, and production-focused development",
+        "Strong focus on writing maintainable code, learning quickly, and delivering dependable results",
+        "Able to contribute independently while collaborating well with product, design, and engineering teams"
+      ],
+      closing: "If there is a suitable opening on your team, I would appreciate the opportunity to be considered."
+    }),
     ai_ml_engineer: buildRoleTemplate({
       label: "AI / ML engineer",
-      subject: "Application for AI / ML Engineer Role",
-      intro: "This email is to express interest in AI / ML engineer opportunities focused on practical machine learning systems, model-backed features, and measurable quality improvements.",
+      subject: "Application for AI / ML Opportunities",
+      intro: "I am reaching out to express my interest in AI and machine learning opportunities where I can contribute to practical ML systems, model-backed features, and measurable product improvements.",
       highlights: [
         "Experience with ML workflows, model evaluation, and production-oriented problem solving",
         "Comfortable with Python, data pipelines, experimentation, and integrating models into applications",
         "Interested in applied AI work across LLM features, recommendation systems, forecasting, or predictive modeling"
       ],
-      closing: "Please consider the attached profile for AI and machine learning opportunities aligned with your roadmap."
+      closing: "If there is a relevant opening on your team, I would value the opportunity to be considered."
     }),
     full_stack_developer: buildRoleTemplate({
       label: "Full stack developer",
       subject: "Application for Full Stack Developer Role",
-      intro: "This email is to express interest in full stack developer roles spanning backend services, frontend experiences, APIs, and deployment workflows.",
+      intro: "I am reaching out to express my interest in full stack development opportunities spanning backend services, frontend experiences, APIs, and deployment workflows.",
       highlights: [
         "Hands-on experience across UI development, server-side implementation, and database-backed applications",
         "Strong focus on shipping reliable features, debugging efficiently, and maintaining clean code",
         "Comfortable collaborating across product, design, and engineering to deliver production-ready systems"
       ],
-      closing: "Please consider the attached profile for full stack opportunities where strong ownership and product-minded engineering are valued."
+      closing: "If there is a suitable opening, I would be glad to discuss how I could contribute."
     }),
     frontend_developer: buildRoleTemplate({
       label: "Frontend developer",
       subject: "Application for Frontend Developer Role",
-      intro: "This email is to express interest in frontend developer roles focused on responsive, accessible, and high-quality interfaces with strong attention to performance and usability.",
+      intro: "I am writing to express my interest in frontend development opportunities focused on responsive, accessible, and high-quality interfaces with strong attention to performance and usability.",
       highlights: [
         "Experience turning product requirements into polished web experiences",
         "Comfortable with modern JavaScript frameworks, state management, and API integration",
         "Strong interest in UI quality, performance tuning, and maintainable component systems"
       ],
-      closing: "Please consider the attached profile for frontend teams building thoughtful user-facing products."
+      closing: "If there is a relevant role on your side, I would appreciate the chance to be considered."
     }),
     backend_developer: buildRoleTemplate({
       label: "Backend developer",
       subject: "Application for Backend Developer Role",
-      intro: "This email is to express interest in backend developer roles focused on API design, reliable services, and systems that scale cleanly under product demands.",
+      intro: "I am writing to express my interest in backend development opportunities focused on API design, reliable services, and systems that scale cleanly under product demands.",
       highlights: [
         "Experience with backend application logic, databases, integrations, and service reliability",
         "Comfortable with performance tuning, debugging, and maintainable service design",
         "Strong interest in clean architecture, data correctness, and production operations"
       ],
-      closing: "Please consider the attached profile for backend engineering opportunities where reliability and implementation quality matter."
+      closing: "If there is a suitable backend opportunity, I would be glad to be considered."
     }),
     data_engineer: buildRoleTemplate({
       label: "Data engineer",
       subject: "Application for Data Engineer Role",
-      intro: "This email is to express interest in data engineer roles focused on dependable pipelines, clean data models, and systems that help teams trust and use data effectively.",
+      intro: "I am reaching out to express my interest in data engineering opportunities focused on dependable pipelines, clean data models, and systems that help teams trust and use data effectively.",
       highlights: [
         "Experience with ETL or ELT workflows, data transformation, and pipeline reliability",
         "Comfortable working with SQL, Python, warehousing concepts, and automation",
         "Interested in building scalable data foundations for analytics and machine learning use cases"
       ],
-      closing: "Please consider the attached profile for data engineering opportunities aligned with platform quality and business impact."
+      closing: "If there is a relevant opening, I would appreciate the opportunity to be considered."
     }),
     devops_engineer: buildRoleTemplate({
       label: "DevOps / platform engineer",
       subject: "Application for DevOps / Platform Engineer Role",
-      intro: "This email is to express interest in DevOps and platform engineering roles focused on delivery workflows, infrastructure reliability, and developer productivity.",
+      intro: "I am reaching out to express my interest in DevOps and platform engineering opportunities focused on delivery workflows, infrastructure reliability, and developer productivity.",
       highlights: [
         "Experience with CI/CD, deployment automation, observability, and infrastructure workflows",
         "Comfortable with cloud services, containers, scripting, and operational debugging",
         "Strong focus on reliability, automation, and reducing friction in engineering systems"
       ],
-      closing: "Please consider the attached profile for DevOps or platform engineering roles where operational excellence and automation are important."
+      closing: "If there is a suitable opening, I would be glad to discuss how I could contribute."
     }),
     qa_engineer: buildRoleTemplate({
       label: "QA / SDET",
       subject: "Application for QA Engineer / SDET Role",
-      intro: "This email is to express interest in QA engineer and SDET roles focused on product quality through structured testing, automation, and defect analysis.",
+      intro: "I am writing to express my interest in QA and SDET opportunities focused on product quality through structured testing, automation, and defect analysis.",
       highlights: [
         "Experience with test planning, bug investigation, and automation-driven quality workflows",
         "Comfortable validating APIs, UI behavior, regression coverage, and release readiness",
         "Strong attention to detail with a practical mindset around product risk reduction"
       ],
-      closing: "Please consider the attached profile for teams that value strong quality engineering practices."
+      closing: "If there is a relevant opening, I would appreciate the opportunity to be considered."
     })
   }
 };
@@ -243,7 +260,7 @@ function extractRecipients(raw) {
 }
 
 function buildGreeting(_recipient, total) {
-  return total > 1 ? "Hello Hiring Team," : "Hello Hiring Manager,";
+  return total > 1 ? "Hello," : "Hello,";
 }
 
 function buildTransport(smtp) {
@@ -287,9 +304,7 @@ function sanitizeState(state) {
       : null,
     senderProfile: state.senderProfile
       ? {
-          resumeFileName: state.senderProfile.resumeFileName,
-          domain: state.senderProfile.domain,
-          templateKey: state.senderProfile.templateKey
+          resumeFileName: state.senderProfile.resumeFileName
         }
       : null,
     history: Array.isArray(state.history) ? state.history : []
@@ -317,14 +332,9 @@ function validateSmtpPayload(smtp) {
 }
 
 function validateSenderProfile(body, file) {
-  const domain = trimToString(body?.domain);
-  const templateKey = trimToString(body?.templateKey);
-  if (!templates[domain]?.[templateKey]) return { error: "Select a valid profile and template." };
   if (!file) return { error: "Upload a resume file." };
   return {
     value: {
-      domain,
-      templateKey,
       resumeFileName: file.originalname,
       resumeMimeType: file.mimetype || "application/octet-stream",
       resumeBufferBase64: file.buffer.toString("base64")
@@ -332,18 +342,49 @@ function validateSenderProfile(body, file) {
   };
 }
 
-function buildMessages(state, recipientText) {
+function resolveTemplateSelection(state, selection) {
+  const firstDomain = Object.keys(templates)[0] || "";
+  const fallbackDomain = trimToString(selection?.domain) || firstDomain;
+  const fallbackTemplateKey = trimToString(selection?.templateKey) || Object.keys(templates[fallbackDomain] || {})[0] || "";
+  const selectedDomain = fallbackDomain;
+  const selectedTemplateKey = fallbackTemplateKey;
+  if (!templates[selectedDomain]?.[selectedTemplateKey]) {
+    throw new Error("Select a valid profile and template.");
+  }
+  return {
+    domain: selectedDomain,
+    templateKey: selectedTemplateKey,
+    template: templates[selectedDomain][selectedTemplateKey]
+  };
+}
+
+function resolveResumeSelection(state, file) {
+  if (file) {
+    return {
+      resumeFileName: file.originalname,
+      resumeMimeType: file.mimetype || "application/octet-stream",
+      resumeBufferBase64: file.buffer.toString("base64")
+    };
+  }
+  if (state.senderProfile?.resumeFileName && state.senderProfile?.resumeBufferBase64) {
+    return state.senderProfile;
+  }
+  throw new Error("Upload a resume file.");
+}
+
+function buildMessages(state, recipientText, selection, file) {
   const recipients = extractRecipients(recipientText);
-  const template = templates[state.senderProfile.domain][state.senderProfile.templateKey];
+  const { template } = resolveTemplateSelection(state, selection);
+  const resume = resolveResumeSelection(state, file);
   const subject = template.subject;
   const messages = recipients.map((recipient) => {
     const body = template.body({
       greeting: buildGreeting(recipient, recipients.length),
-      resumeText: `Attached resume: ${state.senderProfile.resumeFileName}`
+      resumeText: `Attached resume: ${resume.resumeFileName}`
     });
     return { recipient, subject, content: body };
   });
-  return { recipients, subject, messages };
+  return { recipients, subject, messages, resume };
 }
 
 app.disable("x-powered-by");
@@ -400,14 +441,13 @@ app.post("/api/user/setup", upload.single("resumeFile"), async (req, res, next) 
   try {
     const smtpValidation = validateSmtpPayload(req.body);
     if (smtpValidation.error) return res.status(400).json({ error: smtpValidation.error });
-    const profileValidation = validateSenderProfile(req.body, req.file);
-    if (profileValidation.error) return res.status(400).json({ error: profileValidation.error });
-
     await buildTransport(smtpValidation.value).verify();
 
     const updatedState = await saveAppState({
       smtpAccount: smtpValidation.value,
-      senderProfile: profileValidation.value
+      senderProfile: req.file
+        ? validateSenderProfile(req.body, req.file).value
+        : (await getAppState()).senderProfile
     });
     res.json({ ok: true, user: sanitizeState(updatedState) });
   } catch (error) {
@@ -415,15 +455,15 @@ app.post("/api/user/setup", upload.single("resumeFile"), async (req, res, next) 
   }
 });
 
-app.post("/api/user/send/preview", async (req, res, next) => {
+app.post("/api/user/send/preview", upload.single("resumeFile"), async (req, res, next) => {
   try {
     const state = await getAppState();
-    if (!state.smtpAccount || !state.senderProfile) {
+    if (!state.smtpAccount) {
       return res.status(400).json({ error: "Complete your setup first." });
     }
 
     const recipientText = trimToString(req.body?.recipientText);
-    const preview = buildMessages(state, recipientText);
+    const preview = buildMessages(state, recipientText, req.body, req.file);
     if (!preview.recipients.length) {
       return res.status(400).json({ error: "Paste at least one valid email address." });
     }
@@ -433,15 +473,15 @@ app.post("/api/user/send/preview", async (req, res, next) => {
   }
 });
 
-app.post("/api/user/send", async (req, res, next) => {
+app.post("/api/user/send", upload.single("resumeFile"), async (req, res, next) => {
   try {
     const state = await getAppState();
-    if (!state.smtpAccount || !state.senderProfile) {
+    if (!state.smtpAccount) {
       return res.status(400).json({ error: "Complete your setup first." });
     }
 
     const recipientText = trimToString(req.body?.recipientText);
-    const built = buildMessages(state, recipientText);
+    const built = buildMessages(state, recipientText, req.body, req.file);
     if (!built.recipients.length) {
       return res.status(400).json({ error: "Paste at least one valid email address." });
     }
@@ -456,9 +496,9 @@ app.post("/api/user/send", async (req, res, next) => {
         text: message.content,
         attachments: [
           {
-            filename: state.senderProfile.resumeFileName,
-            content: Buffer.from(state.senderProfile.resumeBufferBase64, "base64"),
-            contentType: state.senderProfile.resumeMimeType
+            filename: built.resume.resumeFileName,
+            content: Buffer.from(built.resume.resumeBufferBase64, "base64"),
+            contentType: built.resume.resumeMimeType
           }
         ]
       });

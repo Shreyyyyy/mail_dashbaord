@@ -19,7 +19,7 @@
           <p class="badge">Single-User SMTP Tool</p>
           <h1>Hiring Mail Portal</h1>
           <p class="subhead">
-            Save one SMTP setup, choose a default resume and template, send personalized mails, and keep the send history in one dashboard.
+            Save one SMTP setup, choose a default resume and template, use a professional default email when you do not want to write one yourself, and keep the send history in one dashboard.
           </p>
         </div>
         <div class="hero-panel">
@@ -39,10 +39,29 @@
             <div class="section-head">
               <div>
                 <h2>Send Mails</h2>
-                <p class="panel-lead">Paste recruiter emails. The system will use your saved SMTP, resume, and template.</p>
+                <p class="panel-lead">Paste recruiter emails. The system will use your saved SMTP, resume, and default professional template.</p>
               </div>
             </div>
             <form id="quick-send-form" class="form-grid">
+              <label>
+                Default Profile
+                <select name="domain" required>
+                  <option value="">Select profile</option>
+                  <option value="marketing">Marketing</option>
+                  <option value="hr">HR</option>
+                  <option value="engineering">Engineering</option>
+                </select>
+              </label>
+              <label>
+                Default Template
+                <select name="templateKey" required>
+                  <option value="">Select template</option>
+                </select>
+              </label>
+              <label class="full">
+                Resume Upload
+                <input type="file" name="resumeFile" accept=".pdf,.doc,.docx,.txt" />
+              </label>
               <label class="full">
                 Hiring Team Emails
                 <textarea name="recipientText" rows="6" placeholder="Paste emails or a paragraph containing recruiter emails." required></textarea>
@@ -100,25 +119,6 @@
               <label class="checkbox">
                 <input type="checkbox" name="tlsRejectUnauthorized" checked />
                 Enforce TLS certificate validation
-              </label>
-              <label class="full">
-                Resume Upload
-                <input type="file" name="resumeFile" accept=".pdf,.doc,.docx,.txt" required />
-              </label>
-              <label>
-                Default Profile
-                <select name="domain" required>
-                  <option value="">Select profile</option>
-                  <option value="marketing">Marketing</option>
-                  <option value="hr">HR</option>
-                  <option value="engineering">Engineering</option>
-                </select>
-              </label>
-              <label>
-                Default Template
-                <select name="templateKey" required>
-                  <option value="">Select template</option>
-                </select>
               </label>
               <div class="full inline-actions">
                 <button type="submit" class="primary">Save My Setup</button>
